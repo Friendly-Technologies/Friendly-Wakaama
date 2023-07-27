@@ -42,4 +42,4 @@ tlvdecode
 .scannerwork
 
 # VS Code
-/build/
+/_build/
