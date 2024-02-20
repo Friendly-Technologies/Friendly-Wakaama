@@ -392,6 +392,7 @@ int json_convertNumeric(const uint8_t *value, size_t valueLen, lwm2m_data_t *tar
 int json_convertTime(const uint8_t *valueStart, size_t valueLen, time_t *t);
 size_t json_unescapeString(uint8_t *dst, const uint8_t *src, size_t len);
 size_t json_escapeString(uint8_t *dst, size_t dstLen, const uint8_t *src, size_t srcLen);
+lwm2m_data_t * json_extendObjects(lwm2m_data_t ** objectsP, int *count);
 lwm2m_data_t * json_extendData(lwm2m_data_t * parentP);
 int json_dataStrip(int size, lwm2m_data_t * dataP, lwm2m_data_t ** resultP);
 lwm2m_data_t * json_findDataItem(lwm2m_data_t * listP, size_t count, uint16_t id);

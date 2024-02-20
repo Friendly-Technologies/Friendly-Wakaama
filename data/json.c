@@ -28,7 +28,7 @@
 
 #define PRV_JSON_BUFFER_SIZE 1024
 
-#define JSON_MIN_ARRAY_LEN      21      // e":[{"n":"N","v":X}]}
+#define JSON_MIN_ARRAY_LEN      13      // e":[{"v":X}]}
 #define JSON_MIN_BASE_LEN        7      // n":"N",
 #define JSON_ITEM_MAX_SIZE      36      // with ten characters for value
 #define JSON_MIN_BX_LEN          5      // bt":1
@@ -318,157 +318,89 @@ static int prv_convertRecord(lwm2m_uri_t * uriP,
                              int count,
                              lwm2m_data_t ** dataP)
 {
-    int index;
-    int freeIndex;
-    lwm2m_data_t * rootP;
-    int size;
-    uri_depth_t rootLevel;
+    int index = 0;
+    lwm2m_data_t * rootP = NULL;
+    int size = 0;
 
-    if (uriP == NULL)
+    if (uriP != NULL) 
     {
-        size = count;
-        *dataP = lwm2m_data_new(count);
-        if (NULL == *dataP) return -1;
-        rootLevel = URI_DEPTH_OBJECT;
-        rootP = *dataP;
-    }
-    else
-    {
-        lwm2m_data_t * parentP;
-        size = 1;
+        uint16_t baseIds[4];
+        uint8_t baseIdSize = 0;
 
-        *dataP = lwm2m_data_new(1);
-        if (NULL == *dataP) return -1;
-        (*dataP)->type = LWM2M_TYPE_OBJECT;
-        (*dataP)->id = uriP->objectId;
-        rootLevel = URI_DEPTH_OBJECT_INSTANCE;
-        parentP = *dataP;
-        if (LWM2M_URI_IS_SET_INSTANCE(uriP))
+        if (!LWM2M_URI_IS_SET_OBJECT(uriP)) return -1;
+        
+        baseIds[baseIdSize++] = uriP->objectId;
+        if (LWM2M_URI_IS_SET_INSTANCE(uriP))baseIds[baseIdSize++] = uriP->instanceId;
+        if (LWM2M_URI_IS_SET_RESOURCE(uriP))baseIds[baseIdSize++] = uriP->resourceId;
+        if (LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP))baseIds[baseIdSize++] = uriP->resourceInstanceId;
+
+        for (index = 0; index < count; index++)
         {
-            parentP->value.asChildren.count = 1;
-            parentP->value.asChildren.array = lwm2m_data_new(1);
-            if (NULL == parentP->value.asChildren.array) goto error;
-            parentP = parentP->value.asChildren.array;
-            parentP->type = LWM2M_TYPE_OBJECT_INSTANCE;
-            parentP->id = uriP->instanceId;
-            rootLevel = URI_DEPTH_RESOURCE;
-            if (LWM2M_URI_IS_SET_RESOURCE(uriP))
-            {
-                parentP->value.asChildren.count = 1;
-                parentP->value.asChildren.array = lwm2m_data_new(1);
-                if (NULL == parentP->value.asChildren.array) goto error;
-                parentP = parentP->value.asChildren.array;
-                parentP->type = LWM2M_TYPE_MULTIPLE_RESOURCE;
-                parentP->id = uriP->resourceId;
-                rootLevel = URI_DEPTH_RESOURCE_INSTANCE;
-            }
+            uint8_t recIdSize = 0;
+
+            while (recordArray[index].ids[recIdSize++] != LWM2M_MAX_ID);
+            // Record always should have obj/inst/res ids
+            if (baseIdSize + recIdSize < 3 || 4 > baseIdSize + recIdSize) return -1;
+
+            memcpy(recordArray[index].ids + baseIdSize, recordArray[index].ids, recIdSize * sizeof(uint16_t));
+            memcpy(recordArray[index].ids, baseIds, baseIdSize * sizeof(uint16_t));
+
         }
-        parentP->value.asChildren.count = count;
-        parentP->value.asChildren.array = lwm2m_data_new(count);
-        if (NULL == parentP->value.asChildren.array) goto error;
-        rootP = parentP->value.asChildren.array;
     }
 
-    freeIndex = 0;
-    for (index = 0 ; index < count ; index++)
-    {
-        lwm2m_data_t * targetP;
-        int resSegmentIndex;
-        int i;
+    for (index = 0; index < count ; index++) {
+        lwm2m_data_t * targetObjP = NULL;
+        lwm2m_data_t * targetInstP = NULL;
+        lwm2m_data_t * targetResP = NULL;
+        lwm2m_data_t * targetResInstP = NULL;
 
-        // check URI depth
-        // resSegmentIndex is set to the resource segment position
-        switch(rootLevel)
-        {
-        case URI_DEPTH_OBJECT:
-            resSegmentIndex = 2;
-            break;
-        case URI_DEPTH_OBJECT_INSTANCE:
-            resSegmentIndex = 1;
-            break;
-        case URI_DEPTH_RESOURCE:
-            resSegmentIndex = 0;
-            break;
-        case URI_DEPTH_RESOURCE_INSTANCE:
-            resSegmentIndex = -1;
-            break;
-        default:
-            goto error;
-        }
-        for (i = 0 ; i <= resSegmentIndex ; i++)
-        {
-            if (recordArray[index].ids[i] == LWM2M_MAX_ID) goto error;
-        }
-        if (resSegmentIndex < 2)
-        {
-            if (recordArray[index].ids[resSegmentIndex + 2] != LWM2M_MAX_ID) goto error;
+        // Get object for corresponding record
+        targetObjP = json_findDataItem(rootP, size, recordArray[index].ids[0]);
+        if (targetObjP == NULL) {
+            targetObjP = json_extendObjects(&rootP, &size);
+            if (targetObjP == NULL) goto error;
+            targetObjP->id = recordArray[index].ids[0];
+            targetObjP->type = LWM2M_TYPE_OBJECT;
         }
 
-        targetP = json_findDataItem(rootP, count, recordArray[index].ids[0]);
-        if (targetP == NULL)
-        {
-            targetP = rootP + freeIndex;
-            freeIndex++;
-            targetP->id = recordArray[index].ids[0];
-            targetP->type = utils_depthToDatatype(rootLevel);
+        // Get object instance for corresponding record
+        targetInstP = json_findDataItem(targetObjP->value.asChildren.array, targetObjP->value.asChildren.count, recordArray[index].ids[1]);
+        if (targetInstP == NULL) {
+            targetInstP = json_extendData(targetObjP);
+            if (targetInstP == NULL) goto error;
+            targetInstP->id = recordArray[index].ids[1];
+            targetInstP->type = LWM2M_TYPE_OBJECT_INSTANCE;
         }
-        if (recordArray[index].ids[1] != LWM2M_MAX_ID)
-        {
-            lwm2m_data_t * parentP;
-            uri_depth_t level;
 
-            parentP = targetP;
-            level = json_decreaseLevel(rootLevel);
-            for (i = 1 ; i <= resSegmentIndex ; i++)
-            {
-                targetP = json_findDataItem(parentP->value.asChildren.array, parentP->value.asChildren.count, recordArray[index].ids[i]);
-                if (targetP == NULL)
-                {
-                    targetP = json_extendData(parentP);
-                    if (targetP == NULL) goto error;
-                    targetP->id = recordArray[index].ids[i];
-                    targetP->type = utils_depthToDatatype(level);
-                }
-                level = json_decreaseLevel(level);
-                parentP = targetP;
-            }
-            if (recordArray[index].ids[resSegmentIndex + 1] != LWM2M_MAX_ID)
-            {
-                targetP->type = LWM2M_TYPE_MULTIPLE_RESOURCE;
-                targetP = json_extendData(targetP);
-                if (targetP == NULL) goto error;
-                targetP->id = recordArray[index].ids[resSegmentIndex + 1];
-                targetP->type = LWM2M_TYPE_UNDEFINED;
+        // Get object instance resource for corresponding record
+        targetResP = json_findDataItem(targetInstP->value.asChildren.array, targetInstP->value.asChildren.count, recordArray[index].ids[2]);
+        if (targetResP == NULL) {
+            targetResP = json_extendData(targetInstP);
+            if (targetResP == NULL) goto error;
+            targetResP->id = recordArray[index].ids[2];
+            if (recordArray[index].ids[3] != LWM2M_MAX_ID) targetResP->type = LWM2M_TYPE_MULTIPLE_RESOURCE;
+            else targetResP->type = LWM2M_TYPE_UNDEFINED;
+        }
+
+        if (recordArray[index].ids[3] != LWM2M_MAX_ID) {
+            // Get object instance resource instance for corresponding record
+            targetResInstP = json_findDataItem(targetResP->value.asChildren.array, targetResP->value.asChildren.count, recordArray[index].ids[3]);
+            if (targetResInstP == NULL) {
+                targetResInstP = json_extendData(targetResP);
+                if (targetResInstP == NULL) goto error;
+                targetResInstP->id = recordArray[index].ids[3];
+                targetResInstP->type = LWM2M_TYPE_UNDEFINED;
             }
         }
 
-        if (true != prv_convertValue(recordArray + index, targetP)) goto error;
+        if (targetResInstP != NULL) {
+            if (true != prv_convertValue(recordArray + index, targetResInstP)) goto error;
+        } else {
+            if (true != prv_convertValue(recordArray + index, targetResP)) goto error;
+        }
     }
 
-
-    if (freeIndex < count)
-    {
-        lwm2m_data_t * newRootP = lwm2m_data_new(freeIndex);
-        if (newRootP == NULL) goto error;
-        memcpy(newRootP, rootP, freeIndex * sizeof(lwm2m_data_t));
-        if (uriP == NULL)
-        {
-            *dataP = newRootP;
-            size = freeIndex;
-        }
-        else
-        {
-            lwm2m_data_t * parentP = *dataP;
-            while (parentP->value.asChildren.array != rootP)
-            {
-                parentP = parentP->value.asChildren.array;
-            }
-            parentP->value.asChildren.array = newRootP;
-            parentP->value.asChildren.count = freeIndex;
-        }
-        lwm2m_free(rootP);     /* do not use lwm2m_data_free() to keep pointed values */
-    }
-
+    *dataP = rootP;
     return size;
 
 error:
