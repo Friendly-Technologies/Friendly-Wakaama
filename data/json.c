@@ -339,12 +339,12 @@ static int prv_convertRecord(lwm2m_uri_t * uriP,
             uint8_t recIdSize = 0;
 
             while (recordArray[index].ids[recIdSize++] != LWM2M_MAX_ID);
+            recIdSize--;
             // Record always should have obj/inst/res ids
-            if (baseIdSize + recIdSize < 3 || 4 > baseIdSize + recIdSize) return -1;
+            if ((baseIdSize + recIdSize) < 3 || 4 < (baseIdSize + recIdSize)) return -1;
 
             memcpy(recordArray[index].ids + baseIdSize, recordArray[index].ids, recIdSize * sizeof(uint16_t));
             memcpy(recordArray[index].ids, baseIds, baseIdSize * sizeof(uint16_t));
-
         }
     }
 
