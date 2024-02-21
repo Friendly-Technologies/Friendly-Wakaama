@@ -635,6 +635,35 @@ int json_parse(lwm2m_uri_t * uriP,
                         targetP = resultP + i;
                         if (targetP->id == uriP->resourceId)
                         {
+                            if (targetP->type == LWM2M_TYPE_MULTIPLE_RESOURCE && LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP))
+                            {
+                                resP = targetP->value.asChildren.array;
+                                size = targetP->value.asChildren.count;
+                            }
+                            else
+                            {
+                                size = json_dataStrip(1, targetP, &resP);
+                                if (size <= 0) goto error;
+                                lwm2m_data_free(count, parsedP);
+                                parsedP = NULL;
+                            }
+                        }
+                    }
+                    if (resP == NULL) goto error;
+                    resultP = resP;
+                }
+                if (LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP))
+                {
+                    lwm2m_data_t * resP;
+
+                    resP = NULL;
+                    for (i = 0 ; i < size && resP == NULL; i++)
+                    {
+                        lwm2m_data_t * targetP;
+
+                        targetP = resultP + i;
+                        if (targetP->id == uriP->resourceInstanceId)
+                        {
                             size = json_dataStrip(1, targetP, &resP);
                             if (size <= 0) goto error;
                             lwm2m_data_free(count, parsedP);
