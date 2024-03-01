@@ -952,6 +952,39 @@ static lwm2m_status_t prv_get_registration_status(bool withLifetime, bool withOb
           STATE_REG_UPDATE_NEEDED;
 }
 
+static int prv_compute_registration_status(lwm2m_status_t serverStatus, lwm2m_status_t requestedStatus, lwm2m_status_t *computedStatus)
+{
+    if (serverStatus == requestedStatus ||
+        serverStatus == STATE_REGISTERED ||
+        serverStatus == STATE_REG_UPDATE_PENDING)
+    {
+        *computedStatus = requestedStatus;
+    } 
+    else if (serverStatus == STATE_REG_FULL_UPDATE_NEEDED || requestedStatus == STATE_REG_FULL_UPDATE_NEEDED)
+    {
+        *computedStatus = STATE_REG_FULL_UPDATE_NEEDED;
+    }
+    else if ((serverStatus == STATE_REG_LT_UPDATE_NEEDED)
+            || (serverStatus == STATE_REG_OBJ_UPDATE_NEEDED)
+            || (serverStatus == STATE_REG_UPDATE_NEEDED))
+    {
+        if (serverStatus != STATE_REG_UPDATE_NEEDED && requestedStatus != STATE_REG_UPDATE_NEEDED)
+        {
+            *computedStatus = STATE_REG_FULL_UPDATE_NEEDED;
+        }
+        else if (serverStatus == STATE_REG_UPDATE_NEEDED)
+        {
+            *computedStatus = requestedStatus;
+        }
+    }
+    else
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
 // update the registration of a given server
 int lwm2m_update_registration(lwm2m_context_t * contextP,
                               uint16_t shortServerID,
@@ -960,9 +993,10 @@ int lwm2m_update_registration(lwm2m_context_t * contextP,
 {
     lwm2m_server_t * targetP;
     uint8_t result;
-    lwm2m_status_t newStatus = prv_get_registration_status(withLifetime, withObjects);
+    lwm2m_status_t newStatus;
+    lwm2m_status_t requestedStatus = prv_get_registration_status(withLifetime, withObjects);
 
-    LOG_ARG("State: %s, shortServerID: %d", STR_STATE(contextP->state), shortServerID);
+    LOG_ARG("State: %s, shortServerID: %d, requested status: %s", STR_STATE(contextP->state), shortServerID, STR_STATUS(requestedStatus));
 
     result = COAP_NO_ERROR;
 
@@ -981,48 +1015,17 @@ int lwm2m_update_registration(lwm2m_context_t * contextP,
         {
             if (targetP->shortID == shortServerID)
             {
-                // found the server, trigger the update transaction
-                if (targetP->status == STATE_REGISTERED
-                 || targetP->status == STATE_REG_UPDATE_PENDING)
-                {
-                    targetP->status = newStatus;
-                    return COAP_NO_ERROR;
-                }
-                else if ((targetP->status == STATE_REG_LT_UPDATE_NEEDED)
-                      || (targetP->status == STATE_REG_OBJ_UPDATE_NEEDED)
-                      || (targetP->status == STATE_REG_FULL_UPDATE_NEEDED)
-                      || (targetP->status == STATE_REG_UPDATE_NEEDED))
-                {
-                    if (targetP->status == STATE_REG_FULL_UPDATE_NEEDED && newStatus == STATE_REG_FULL_UPDATE_NEEDED) 
-                    {
-                        targetP->status = newStatus;
-                    }
-                    else if (targetP->status != newStatus)
-                    {
-                        if (targetP->status != STATE_REG_UPDATE_NEEDED && newStatus != STATE_REG_UPDATE_NEEDED)
-                        {
-                            targetP->status = STATE_REG_FULL_UPDATE_NEEDED;
-                        }
-                        else if (targetP->status == STATE_REG_UPDATE_NEEDED)
-                        {
-                            targetP->status = newStatus;
-                        }
-                    }
-                    return COAP_NO_ERROR;
-                }
-                else
-                {
-                    return COAP_400_BAD_REQUEST;
-                }
+                int res = prv_compute_registration_status(targetP->status, requestedStatus, &newStatus);
+                if (res == -1) return COAP_400_BAD_REQUEST;
+                targetP->status = newStatus;
+                
+                return COAP_NO_ERROR;
             }
         }
         else
         {
-            if (targetP->status == STATE_REGISTERED
-             || targetP->status == STATE_REG_UPDATE_PENDING)
-            {
-               targetP->status = newStatus;
-            }
+            int res = prv_compute_registration_status(targetP->status, requestedStatus, &newStatus);
+            if (res == 0) targetP->status = newStatus;
         }
         targetP = targetP->next;
     }
