@@ -346,7 +346,7 @@ int lwm2m_add_object(lwm2m_context_t * contextP,
 
     if (contextP->state == STATE_READY)
     {
-        return lwm2m_update_registration(contextP, 0, true);
+        return lwm2m_update_registration(contextP, 0, false, true);
     }
 
     return COAP_NO_ERROR;
@@ -364,7 +364,7 @@ int lwm2m_remove_object(lwm2m_context_t * contextP,
 
     if (contextP->state == STATE_READY)
     {
-        return lwm2m_update_registration(contextP, 0, true);
+        return lwm2m_update_registration(contextP, 0, false, true);
     }
 
     return 0;

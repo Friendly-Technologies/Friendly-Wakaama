@@ -866,6 +866,7 @@ static void prv_handleRegistrationUpdateReply(lwm2m_context_t * contextP,
 
 static int prv_updateRegistration(lwm2m_context_t * contextP,
                                   lwm2m_server_t * server,
+                                  bool withLifetime,
                                   bool withObjects)
 {
     lwm2m_transaction_t * transaction;
@@ -876,6 +877,19 @@ static int prv_updateRegistration(lwm2m_context_t * contextP,
     if (transaction == NULL) return COAP_500_INTERNAL_SERVER_ERROR;
 
     coap_set_header_uri_path(transaction->message, server->location);
+
+    if (withLifetime == true)
+    {   
+        char buffer[QUERY_LIFETIME_LEN + 21];
+        int res;
+
+        res = utils_stringCopy(buffer , sizeof(buffer), QUERY_STARTER QUERY_LIFETIME);
+        if (res < 0) return COAP_500_INTERNAL_SERVER_ERROR;
+        res = utils_intToText(server->lifetime, (uint8_t *)buffer + res, sizeof(buffer) - res);
+        if (res == 0) return COAP_500_INTERNAL_SERVER_ERROR;
+
+        coap_set_header_uri_query(transaction->message, buffer);
+    }
 
     if (withObjects == true)
     {
@@ -930,13 +944,23 @@ static int prv_updateRegistration(lwm2m_context_t * contextP,
     return COAP_NO_ERROR;
 }
 
+static lwm2m_status_t prv_get_registration_status(bool withLifetime, bool withObjects)
+{
+   return (withLifetime && withObjects) ? STATE_REG_FULL_UPDATE_NEEDED :
+          (withLifetime) ? STATE_REG_LT_UPDATE_NEEDED :
+          (withObjects) ? STATE_REG_OBJ_UPDATE_NEEDED :
+          STATE_REG_UPDATE_NEEDED;
+}
+
 // update the registration of a given server
 int lwm2m_update_registration(lwm2m_context_t * contextP,
                               uint16_t shortServerID,
+                              bool withLifetime,
                               bool withObjects)
 {
     lwm2m_server_t * targetP;
     uint8_t result;
+    lwm2m_status_t newStatus = prv_get_registration_status(withLifetime, withObjects);
 
     LOG_ARG("State: %s, shortServerID: %d", STR_STATE(contextP->state), shortServerID);
 
@@ -961,23 +985,28 @@ int lwm2m_update_registration(lwm2m_context_t * contextP,
                 if (targetP->status == STATE_REGISTERED
                  || targetP->status == STATE_REG_UPDATE_PENDING)
                 {
-                    if (withObjects == true)
-                    {
-                        targetP->status = STATE_REG_FULL_UPDATE_NEEDED;
-                    }
-                    else
-                    {
-                        targetP->status = STATE_REG_UPDATE_NEEDED;
-                    }
+                    targetP->status = newStatus;
                     return COAP_NO_ERROR;
                 }
-                else if ((targetP->status == STATE_REG_FULL_UPDATE_NEEDED)
+                else if ((targetP->status == STATE_REG_LT_UPDATE_NEEDED)
+                      || (targetP->status == STATE_REG_OBJ_UPDATE_NEEDED)
+                      || (targetP->status == STATE_REG_FULL_UPDATE_NEEDED)
                       || (targetP->status == STATE_REG_UPDATE_NEEDED))
                 {
-                    // if REG (FULL) UPDATE is already set, returns COAP_NO_ERROR
-                    if (withObjects == true)
+                    if (targetP->status == STATE_REG_FULL_UPDATE_NEEDED && newStatus == STATE_REG_FULL_UPDATE_NEEDED) 
                     {
-                        targetP->status = STATE_REG_FULL_UPDATE_NEEDED;
+                        targetP->status = newStatus;
+                    }
+                    else if (targetP->status != newStatus)
+                    {
+                        if (targetP->status != STATE_REG_UPDATE_NEEDED && newStatus != STATE_REG_UPDATE_NEEDED)
+                        {
+                            targetP->status = STATE_REG_FULL_UPDATE_NEEDED;
+                        }
+                        else if (targetP->status == STATE_REG_UPDATE_NEEDED)
+                        {
+                            targetP->status = newStatus;
+                        }
                     }
                     return COAP_NO_ERROR;
                 }
@@ -992,14 +1021,7 @@ int lwm2m_update_registration(lwm2m_context_t * contextP,
             if (targetP->status == STATE_REGISTERED
              || targetP->status == STATE_REG_UPDATE_PENDING)
             {
-                if (withObjects == true)
-                {
-                    targetP->status = STATE_REG_FULL_UPDATE_NEEDED;
-                }
-                else
-                {
-                    targetP->status = STATE_REG_UPDATE_NEEDED;
-                }
+               targetP->status = newStatus;
             }
         }
         targetP = targetP->next;
@@ -1103,6 +1125,8 @@ lwm2m_status_t registration_getStatus(lwm2m_context_t * contextP)
         {
             case STATE_REGISTERED:
             case STATE_REG_UPDATE_NEEDED:
+            case STATE_REG_LT_UPDATE_NEEDED:
+            case STATE_REG_OBJ_UPDATE_NEEDED:
             case STATE_REG_FULL_UPDATE_NEEDED:
             case STATE_REG_UPDATE_PENDING:
             case STATE_DEREG_PENDING:
@@ -2091,7 +2115,7 @@ void registration_step(lwm2m_context_t * contextP,
             if (0 >= interval)
             {
                 LOG_ARG("%d Updating registration", targetP->shortID);
-                prv_updateRegistration(contextP, targetP, false);
+                prv_updateRegistration(contextP, targetP, false, false);
             }
             else if (interval < *timeoutP)
             {
@@ -2101,11 +2125,19 @@ void registration_step(lwm2m_context_t * contextP,
         break;
 
         case STATE_REG_UPDATE_NEEDED:
-            prv_updateRegistration(contextP, targetP, false);
+            prv_updateRegistration(contextP, targetP, false, false);
+            break;
+
+        case STATE_REG_LT_UPDATE_NEEDED:
+            prv_updateRegistration(contextP, targetP, true, false);
+            break;
+
+        case STATE_REG_OBJ_UPDATE_NEEDED:
+            prv_updateRegistration(contextP, targetP, false, true);
             break;
 
         case STATE_REG_FULL_UPDATE_NEEDED:
-            prv_updateRegistration(contextP, targetP, true);
+            prv_updateRegistration(contextP, targetP, true, true);
             break;
 
         case STATE_REG_FAILED:
