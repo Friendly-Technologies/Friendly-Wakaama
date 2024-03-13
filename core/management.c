@@ -188,8 +188,6 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
 
     if (serverP->status != STATE_REGISTERED
         && serverP->status != STATE_REG_UPDATE_NEEDED
-        && serverP->status != STATE_REG_LT_UPDATE_NEEDED
-        && serverP->status != STATE_REG_OBJ_UPDATE_NEEDED
         && serverP->status != STATE_REG_FULL_UPDATE_NEEDED
         && serverP->status != STATE_REG_UPDATE_PENDING)
     {
@@ -323,7 +321,7 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
                     }
                     coap_set_header_location_path(response, location_path);
 
-                    lwm2m_update_registration(contextP, 0, false, true);
+                    lwm2m_update_registration(contextP, 0, true);
                 }
             }
             else if (!IS_OPTION(message, COAP_OPTION_CONTENT_TYPE)
@@ -393,7 +391,7 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
                 result = object_delete(contextP, uriP);
                 if (result == COAP_202_DELETED)
                 {
-                    lwm2m_update_registration(contextP, 0, false, true);
+                    lwm2m_update_registration(contextP, 0, true);
                 }
             }
         }

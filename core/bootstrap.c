@@ -96,7 +96,7 @@ static void prv_requestBootstrap(lwm2m_context_t * context,
 
 #ifndef LWM2M_VERSION_1_0
     // TODO Add SenML CBOR as a preferred content type when supported.
-#ifdef LWM2M_BS_PREFERRED_CONTENT_TYPE
+#if defined(LWM2M_SUPPORT_SENML_JSON) || defined(LWM2M_SUPPORT_TLV)
     res = utils_stringCopy(query + query_length, PRV_QUERY_BUFFER_LENGTH - query_length, QUERY_DELIMITER QUERY_PCT);
     if (res < 0)
     {
@@ -104,8 +104,15 @@ static void prv_requestBootstrap(lwm2m_context_t * context,
         return;
     }
     query_length += res;
-
-    res = utils_stringCopy(query + query_length, PRV_QUERY_BUFFER_LENGTH - query_length, VALUE_TO_STRING(LWM2M_BS_PREFERRED_CONTENT_TYPE));
+#if defined(LWM2M_SUPPORT_SENML_JSON)
+    res = utils_stringCopy(query + query_length, PRV_QUERY_BUFFER_LENGTH - query_length, REG_ATTR_CONTENT_SENML_JSON);
+#elif defined(LWM2M_SUPPORT_TLV)
+    res = utils_stringCopy(query + query_length, PRV_QUERY_BUFFER_LENGTH - query_length, REG_ATTR_CONTENT_TLV);
+#else
+    /* This shouldn't be possible. */
+#warning No supported content type for bootstrap. Bootstrap will always fail.
+    res = -1;
+#endif
     if (res < 0)
     {
         bootstrapServer->status = STATE_BS_FAILING;

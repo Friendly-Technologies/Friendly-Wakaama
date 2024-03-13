@@ -492,9 +492,7 @@ typedef enum
     STATE_REG_FAILED,              // last registration failed
     STATE_REG_UPDATE_PENDING,      // registration update pending
     STATE_REG_UPDATE_NEEDED,       // registration update required
-    STATE_REG_LT_UPDATE_NEEDED,    // registration update with lifetime extension required
-    STATE_REG_OBJ_UPDATE_NEEDED,   // registration update with objects required
-    STATE_REG_FULL_UPDATE_NEEDED,  // registration update with objects and lifetime extension required
+    STATE_REG_FULL_UPDATE_NEEDED,  // registration update with objects required
     STATE_DEREG_PENDING,           // deregistration pending
     STATE_BS_HOLD_OFF,             // bootstrap hold off time
     STATE_BS_INITIATED,            // bootstrap request sent
@@ -822,13 +820,10 @@ int lwm2m_remove_object(lwm2m_context_t * contextP, uint16_t id);
 // send a registration update to the server specified by the server short identifier
 // or all if the ID is 0.
 // If withObjects is true, the registration update contains the object list.
-int lwm2m_update_registration(lwm2m_context_t * contextP, uint16_t shortServerID, bool withLifetime, bool withObjects);
+int lwm2m_update_registration(lwm2m_context_t * contextP, uint16_t shortServerID, bool withObjects);
 // send deregistration to all servers connected to client
 void lwm2m_deregister(lwm2m_context_t * context);
 void lwm2m_resource_value_changed(lwm2m_context_t * contextP, lwm2m_uri_t * uriP);
-
-// Should be called when changes are made to the server life time.
-void lwm2m_update_server_lifetime(lwm2m_context_t * contextP, uint16_t serverId, time_t lifetime);
 #endif
 
 #ifdef LWM2M_SERVER_MODE

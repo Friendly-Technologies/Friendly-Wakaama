@@ -558,7 +558,7 @@ static void prv_update(lwm2m_context_t * lwm2mH,
     if (buffer[0] == 0) goto syntax_error;
 
     uint16_t serverId = (uint16_t) atoi(buffer);
-    int res = lwm2m_update_registration(lwm2mH, serverId, false, false);
+    int res = lwm2m_update_registration(lwm2mH, serverId, false);
     if (res != 0)
     {
         fprintf(stdout, "Registration update error: ");

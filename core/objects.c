@@ -1233,19 +1233,4 @@ uint8_t object_writeInstance(lwm2m_context_t * contextP,
     return targetP->writeFunc(contextP, dataP->id, dataP->value.asChildren.count, dataP->value.asChildren.array, targetP, LWM2M_WRITE_REPLACE_INSTANCE);
 }
 
-void lwm2m_update_server_lifetime(lwm2m_context_t * contextP, uint16_t serverId, time_t lifetime) {
-   lwm2m_server_t *serverP = (lwm2m_server_t *)contextP->serverList;
-
-    if(serverId == 0) return;
-
-    while(serverP && serverP->shortID != serverId)
-    {
-        serverP = serverP->next;
-    }
-
-    if(serverP == NULL) return;
-    if (serverP->lifetime != lifetime) lwm2m_update_registration(contextP, serverId, true, false);
-    serverP->lifetime = lifetime;
-}
-
 #endif

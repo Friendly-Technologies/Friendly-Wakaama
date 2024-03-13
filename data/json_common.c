@@ -489,22 +489,6 @@ size_t json_escapeString(uint8_t *dst, size_t dstLen, const uint8_t *src, size_t
     return head;
 }
 
-lwm2m_data_t * json_extendObjects(lwm2m_data_t ** objectsP, int *count)
-{
-    lwm2m_data_t * newP;
-
-    newP = lwm2m_data_new(*count + 1);
-    if (newP == NULL) return NULL;
-    if (count)
-    {
-        memcpy(newP, *objectsP, *count * sizeof(lwm2m_data_t));
-        lwm2m_free(*objectsP);     /* do not use lwm2m_data_free() to keep pointed values */
-    }
-    *objectsP = newP;
-
-    return newP + (*count)++;
-}
-
 lwm2m_data_t * json_extendData(lwm2m_data_t * parentP)
 {
     lwm2m_data_t * newP;
