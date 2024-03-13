@@ -11,6 +11,7 @@ function(target_sources_data target)
         PRIVATE ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/data.c ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/json.c
                 ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/json_common.c ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/senml_json.c
                 ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/tlv.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/cbor.c
     )
 endfunction()
 
@@ -49,6 +50,10 @@ function(target_sources_wakaama target)
                 ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/uri.c
                 ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/utils.c
     )
+    # project(tinycborModule)
+    # ADD_LIBRARY(tinycborModule)
+    target_include_directories(${target} PRIVATE /home/anr/tinycbor/src/)
+    target_link_libraries(${target} /home/anr/tinycbor/lib/libtinycbor.a)
 
     target_include_directories(${target} PRIVATE ${WAKAAMA_TOP_LEVEL_DIRECTORY}/include)
 
