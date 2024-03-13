@@ -64,6 +64,9 @@
 
 #include "er-coap-13/er-coap-13.h"
 
+#define TO_STRING(x) #x
+#define VALUE_TO_STRING(x) TO_STRING(x)
+
 #ifdef LWM2M_WITH_LOGS
 #include <inttypes.h>
 #define LOG(STR) lwm2m_printf("[%s:%d] " STR "\r\n", __func__ , __LINE__)
@@ -132,16 +135,12 @@
 
 #define LWM2M_DEFAULT_LIFETIME  86400
 
-#ifdef LWM2M_SUPPORT_SENML_JSON
-#define REG_LWM2M_RESOURCE_TYPE     ">;rt=\"oma.lwm2m\";ct=110,"
-#define REG_LWM2M_RESOURCE_TYPE_LEN 23
-#elif defined(LWM2M_SUPPORT_JSON)
-#define REG_LWM2M_RESOURCE_TYPE     ">;rt=\"oma.lwm2m\";ct=11543,"
-#define REG_LWM2M_RESOURCE_TYPE_LEN 25
+#ifdef LWM2M_REG_PREFERRED_CONTENT_TYPE
+#define REG_LWM2M_RESOURCE_TYPE     ">;rt=\"oma.lwm2m\";ct=" VALUE_TO_STRING(LWM2M_REG_PREFERRED_CONTENT_TYPE) ","
 #else
 #define REG_LWM2M_RESOURCE_TYPE     ">;rt=\"oma.lwm2m\","
-#define REG_LWM2M_RESOURCE_TYPE_LEN 17
 #endif
+
 #define REG_START           "<"
 #define REG_DEFAULT_PATH    "/"
 

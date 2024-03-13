@@ -81,6 +81,8 @@ Several preprocessor definitions are supported:
  - LWM2M_SUPPORT_JSON to enable JSON payload support (implicit when defining LWM2M_SERVER_MODE)
  - LWM2M_SUPPORT_SENML_JSON to enable SenML JSON payload support (implicit for LWM2M 1.1 or greater when defining LWM2M_SERVER_MODE or LWM2M_BOOTSTRAP_SERVER_MODE)
  - LWM2M_OLD_CONTENT_FORMAT_SUPPORT to support the deprecated content format values for TLV and JSON.
+ - LWM2M_BS_PREFERRED_CONTENT_TYPE to set preferred content type for bootstrap server
+ - LWM2M_REG_PREFERRED_CONTENT_TYPE to set preferred content type for registration
  - Version 1.1 of LWM2M is supported per default, but can be constrained to older versions:
    - LWM2M_VERSION_1_0 to support only version 1.0
    Please note: Clients support only the specified version, while servers are backward compatible.
