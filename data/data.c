@@ -698,6 +698,10 @@ int lwm2m_data_parse(lwm2m_uri_t * uriP,
         return tlv_parse(buffer, bufferLen, dataP);
 #endif
 
+#ifdef LWM2M_SUPPORT_CBOR
+        return cbor_parse(buffer, bufferLen, dataP);
+#endif
+
 #ifdef LWM2M_SUPPORT_JSON
 #ifdef LWM2M_OLD_CONTENT_FORMAT_SUPPORT
     case LWM2M_CONTENT_JSON_OLD:
