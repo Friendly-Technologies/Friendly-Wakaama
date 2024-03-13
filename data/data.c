@@ -778,7 +778,11 @@ int lwm2m_data_serialize(lwm2m_uri_t * uriP,
 #ifndef LWM2M_VERSION_1_0
         if (uriP != NULL && LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP))
         {
-            if(size != 1 || dataP->id != uriP->resourceInstanceId) return -1;
+            if (dataP->type == LWM2M_TYPE_MULTIPLE_RESOURCE) {
+                size = dataP->value.asChildren.count;
+                dataP = dataP->value.asChildren.array;
+            }
+            if(size != 1) return -1;
             isResourceInstance = true;
         }
         else
