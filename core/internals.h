@@ -64,6 +64,9 @@
 
 #include "er-coap-13/er-coap-13.h"
 
+#define TO_STRING(x) #x
+#define VALUE_TO_STRING(x) TO_STRING(x)
+
 #ifdef LWM2M_WITH_LOGS
 #include <inttypes.h>
 #define LOG(STR) lwm2m_printf("[%s:%d] " STR "\r\n", __func__ , __LINE__)
@@ -97,7 +100,9 @@
 ((S) == STATE_REG_FAILED ? "STATE_REG_FAILED" :                 \
 ((S) == STATE_REG_UPDATE_PENDING ? "STATE_REG_UPDATE_PENDING" : \
 ((S) == STATE_REG_UPDATE_NEEDED ? "STATE_REG_UPDATE_NEEDED" :   \
-((S) == STATE_REG_FULL_UPDATE_NEEDED ? "STATE_REG_FULL_UPDATE_NEEDED" :   \
+((S) == STATE_REG_LT_UPDATE_NEEDED ? "STATE_REG_LT_UPDATE_NEEDED" :   \
+((S) == STATE_REG_OBJ_UPDATE_NEEDED ? "STATE_REG_OBJ_UPDATE_NEEDED" :   \
+((S) == STATE_REG_FULL_UPDATE_NEEDED ? "STATE_REG_FULL_UPDATE_NEEDED" : \
 ((S) == STATE_DEREG_PENDING ? "STATE_DEREG_PENDING" :           \
 ((S) == STATE_BS_HOLD_OFF ? "STATE_BS_HOLD_OFF" :               \
 ((S) == STATE_BS_INITIATED ? "STATE_BS_INITIATED" :             \
@@ -106,7 +111,7 @@
 ((S) == STATE_BS_FINISHING ? "STATE_BS_FINISHING" :             \
 ((S) == STATE_BS_FAILING ? "STATE_BS_FAILING" :                 \
 ((S) == STATE_BS_FAILED ? "STATE_BS_FAILED" :                   \
-"Unknown"))))))))))))))))
+"Unknown"))))))))))))))))))
 #define STR_MEDIA_TYPE(M)                                        \
 ((M) == LWM2M_CONTENT_TEXT ? "LWM2M_CONTENT_TEXT" :              \
 ((M) == LWM2M_CONTENT_LINK ? "LWM2M_CONTENT_LINK" :              \
@@ -132,16 +137,12 @@
 
 #define LWM2M_DEFAULT_LIFETIME  86400
 
-#ifdef LWM2M_SUPPORT_SENML_JSON
-#define REG_LWM2M_RESOURCE_TYPE     ">;rt=\"oma.lwm2m\";ct=110,"
-#define REG_LWM2M_RESOURCE_TYPE_LEN 23
-#elif defined(LWM2M_SUPPORT_JSON)
-#define REG_LWM2M_RESOURCE_TYPE     ">;rt=\"oma.lwm2m\";ct=11543,"
-#define REG_LWM2M_RESOURCE_TYPE_LEN 25
+#ifdef LWM2M_REG_PREFERRED_CONTENT_TYPE
+#define REG_LWM2M_RESOURCE_TYPE     ">;rt=\"oma.lwm2m\";ct=" VALUE_TO_STRING(LWM2M_REG_PREFERRED_CONTENT_TYPE) ","
 #else
 #define REG_LWM2M_RESOURCE_TYPE     ">;rt=\"oma.lwm2m\","
-#define REG_LWM2M_RESOURCE_TYPE_LEN 17
 #endif
+
 #define REG_START           "<"
 #define REG_DEFAULT_PATH    "/"
 
@@ -392,6 +393,7 @@ int json_convertNumeric(const uint8_t *value, size_t valueLen, lwm2m_data_t *tar
 int json_convertTime(const uint8_t *valueStart, size_t valueLen, time_t *t);
 size_t json_unescapeString(uint8_t *dst, const uint8_t *src, size_t len);
 size_t json_escapeString(uint8_t *dst, size_t dstLen, const uint8_t *src, size_t srcLen);
+lwm2m_data_t * json_extendObjects(lwm2m_data_t ** objectsP, int *count);
 lwm2m_data_t * json_extendData(lwm2m_data_t * parentP);
 int json_dataStrip(int size, lwm2m_data_t * dataP, lwm2m_data_t ** resultP);
 lwm2m_data_t * json_findDataItem(lwm2m_data_t * listP, size_t count, uint16_t id);
