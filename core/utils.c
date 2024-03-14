@@ -783,6 +783,13 @@ uint8_t utils_getResponseFormat(uint8_t accept_num,
                 break;
 #endif
 
+#ifdef LWM2M_SUPPORT_CBOR
+            case LWM2M_CONTENT_CBOR:
+                *format = LWM2M_CONTENT_CBOR;
+                found = true;
+                break;
+#endif
+
 #ifdef LWM2M_SUPPORT_JSON
 #ifdef LWM2M_OLD_CONTENT_FORMAT_SUPPORT
             case LWM2M_CONTENT_JSON_OLD:

@@ -651,6 +651,7 @@ int lwm2m_data_parse(lwm2m_uri_t * uriP,
     int res;
 
     LOG_ARG("format: %s, bufferLen: %d", STR_MEDIA_TYPE(format), bufferLen);
+    LOG("lwm2m_data_parse");
     LOG_URI(uriP);
     switch (format)
     {
@@ -699,6 +700,8 @@ int lwm2m_data_parse(lwm2m_uri_t * uriP,
 #endif
 
 #ifdef LWM2M_SUPPORT_CBOR
+    case LWM2M_CONTENT_CBOR:
+        LOG("CBOR cbor_parse ");
         return cbor_parse(buffer, bufferLen, dataP);
 #endif
 
@@ -802,6 +805,12 @@ int lwm2m_data_serialize(lwm2m_uri_t * uriP,
         }
         return tlv_serialize(isResourceInstance, size, dataP, bufferP);
     }
+#endif
+
+#ifdef LWM2M_SUPPORT_CBOR
+    case LWM2M_CONTENT_CBOR:
+        LOG("CBOR cbor_serialize ");
+        return cbor_serialize(true, size, dataP, bufferP);
 #endif
 
 #ifdef LWM2M_CLIENT_MODE

@@ -25,8 +25,7 @@ static bool dumprecursive(CborValue *it, int nestingLevel)
         {
             /* Recursive type. */
             CborValue recursed;
-            LOG_ARG(LVL_INFO, "%s%s", indent,
-                                  type == CborArrayType ? "Array[" : "Map[");
+            LOG_ARG("CBOR %s%s", indent, type == CborArrayType ? "Array[" : "Map[");
             err = cbor_value_enter_container(it, &recursed);
             if (err != CborNoError)
             {
@@ -45,7 +44,7 @@ static bool dumprecursive(CborValue *it, int nestingLevel)
                 /* Parse error. */
                 return err;
             }
-            LOG_ARG(LVL_INFO, "%s]", indent);
+            LOG_ARG( "CBOR [%s]", indent);
             continue;
         }
  
@@ -58,7 +57,7 @@ static bool dumprecursive(CborValue *it, int nestingLevel)
                 /* Parse error. */
                 return err;
             }
-            LOG_ARG(LVL_INFO, "%sInteger: %d", indent, val);
+            LOG_ARG("CBOR %sInteger: %d", indent, val);
             break;
         }
  
@@ -72,8 +71,8 @@ static bool dumprecursive(CborValue *it, int nestingLevel)
                 /* Parse error. */
                 return err;
             }
-            LOG_ARG(LVL_INFO, "%sByteString: ", indent);
-            LOG_ARG(LVL_INFO, data, n);
+            LOG_ARG("CBOR %sByteString: ", indent);
+            LOG_ARG("CBOR size%d" , n);
  
             continue;
         }
@@ -88,7 +87,7 @@ static bool dumprecursive(CborValue *it, int nestingLevel)
                 /* Parse error. */
                 return err;
             }
-            LOG_ARG(LVL_INFO, "%sTextString: %s", indent, data);
+            LOG_ARG("CBOR %sTextString: %s", indent, data);
             continue;
         }
  
@@ -96,7 +95,7 @@ static bool dumprecursive(CborValue *it, int nestingLevel)
         {
             CborTag tag;
             cbor_value_get_tag(it, &tag); // can't fail
-            LOG_ARG(LVL_INFO, "%sTag(%d)", indent, tag);
+            LOG_ARG("CBOR %sTag(%d)", indent, tag);
             break;
         }
  
@@ -104,19 +103,19 @@ static bool dumprecursive(CborValue *it, int nestingLevel)
         {
             uint8_t sType;
             cbor_value_get_simple_type(it, &sType); // can't fail
-            LOG_ARG(LVL_INFO, "%sSimple(%u)", indent, sType);
+            LOG_ARG("CBOR %sSimple(%u)", indent, sType);
             break;
         }
  
         case CborNullType:
         {
-            LOG_ARG(LVL_INFO, "%sNull", indent);
+            LOG_ARG("CBOR %sNull", indent);
             break;
         }
  
         case CborUndefinedType:
         {
-            LOG_ARG(LVL_INFO, "%sUndefined", indent);
+            LOG_ARG("CBOR %sUndefined", indent);
             break;
         }
  
@@ -124,7 +123,7 @@ static bool dumprecursive(CborValue *it, int nestingLevel)
         {
             bool val;
             cbor_value_get_boolean(it, &val); // can't fail
-            LOG_ARG(LVL_INFO, "%sBoolean: %s", indent, val ? "true" : "false");
+            LOG_ARG("CBOR %sBoolean: %s", indent, val ? "true" : "false");
             break;
         }
  
@@ -133,13 +132,13 @@ static bool dumprecursive(CborValue *it, int nestingLevel)
         case CborHalfFloatType:
         {
             /* Not managed. */
-            LOG_ARG(LVL_WARNING, "%sFloat: (not managed)", indent);
+            LOG_ARG("CBOR %sFloat: (not managed)", indent);
             break;
         }
  
         case CborInvalidType:
             /* Can't happen. */
-            LOG_ARG(LVL_INFO, "%sInvalidType", indent);
+            LOG_ARG("CBOR %sInvalidType", indent);
             break;
         }
  
@@ -175,9 +174,7 @@ int cbor_parse(const uint8_t * buffer,
  
     if (err != CborNoError)
     {
-        LOG_ARG(LVL_ERROR, "CBOR parsing failure at offset %ld: %s",
-                       value.ptr - m_cbor_buffer,
-                       cbor_error_string(err));
+        LOG_ARG("CBOR parsing failure at offset %ld: %s", value.source.ptr - buffer, cbor_error_string(err));
     }
 
     return 0;
