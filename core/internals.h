@@ -117,9 +117,11 @@
 ((M) == LWM2M_CONTENT_LINK ? "LWM2M_CONTENT_LINK" :              \
 ((M) == LWM2M_CONTENT_OPAQUE ? "LWM2M_CONTENT_OPAQUE" :          \
 ((M) == LWM2M_CONTENT_TLV ? "LWM2M_CONTENT_TLV" :                \
+((M) == LWM2M_CONTENT_CBOR ? "LWM2M_CONTENT_CBOR" :              \
+((M) == LWM2M_CONTENT_SENML_CBOR ? "LWM2M_CONTENT_SENML_CBOR" :  \
 ((M) == LWM2M_CONTENT_JSON ? "LWM2M_CONTENT_JSON" :              \
 ((M) == LWM2M_CONTENT_SENML_JSON ? "LWM2M_CONTENT_SENML_JSON" :  \
-"Unknown"))))))
+"Unknown"))))))))
 #define STR_STATE(S)                                \
 ((S) == STATE_INITIAL ? "STATE_INITIAL" :      \
 ((S) == STATE_BOOTSTRAP_REQUIRED ? "STATE_BOOTSTRAP_REQUIRED" :      \
