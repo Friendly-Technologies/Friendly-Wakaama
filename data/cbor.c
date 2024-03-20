@@ -13,200 +13,39 @@ CborError cbor_dump_recursive(CborValue *value, lwm2m_data_t* data, size_t dataS
     }
     indent[idx] = '\0';
  
-    // while (!cbor_value_at_end(value))
-    // {
-        CborError err;
-        CborType type = cbor_value_get_type(value);
-        LOG_ARG("CBOR  CborType type = 0x%x (%d) ", type, type);
-        LOG_ARG("CBOR 1 cbor_value_at_end (%d) ", cbor_value_at_end(value));
+    CborError err = CborErrorUnknownTag;
+    CborTag tag;
 
-        switch (type)
-        {
-            case CborArrayType:
-            case CborMapType:
-            {
-                /* Recursive type. */
-                CborValue recursed;
-                // LOG_ARG("CBOR %s%s", indent, type == CborArrayType ? "Array[" : "Map[");
-                err = cbor_value_enter_container(value, &recursed);
-                if (err != CborNoError)
-                {
-                    lwm2m_free(data); // Free allocated memory/* Parse error. */
-                    return err;
-                }
-                err = cbor_dump_recursive(&recursed, data, dataSize, nestingLevel + 1);
-                if (err != CborNoError)
-                {
-                    /* Parse error. */
-                    return err;
-                }
-                err = cbor_value_leave_container(value, &recursed);
-                if (err != CborNoError)
-                {
-                    lwm2m_free(data); // Free allocated memory /* Parse error. */
-                    return err;
-                }
-                // LOG_ARG( "CBOR [%s]", indent);
-                // continue;
-                break;
-            }
+    if (!cbor_value_is_tag(value)) {
+        LOG("Error: Expected a tag\n");
+        return err;
+    }
 
-            case CborIntegerType:
-            {
-                err = cbor_value_get_int64(value, &data->value.asInteger); // Example: Parse an integer
-                if (err != CborNoError) {
-                    // Error handling
-                    lwm2m_free(data); // Free allocated memory // Free allocated memory
-                    return err;
-                }
-                break;
-            }
+    err = cbor_value_get_tag(value, &tag);
+    if (err != CborNoError)
+    {
+        return err;
+    }
+    LOG_ARG("Parsed TAG: %lu (0x%x)\n", tag, tag);
 
-            case CborByteStringType:
-            {
-                // err = cbor_value_copy_byte_string(&value, &data->value.asChildren.array, &data->value.asChildren.count, &value);
-                if (err != CborNoError)
-                {
-                    /* Parse error. */
-                    lwm2m_free(data); // Free allocated memory
-                    return err;
-                }
-                // continue;
-                break;
-            }
+    if (tag != 0x19) {
+        LOG("Error: Expected tag 0x19\n");
+    }
 
-            case CborTextStringType:
-            {
-                char strData[64];
-                size_t n = 64;
-                err = cbor_value_copy_text_string(value, strData, &n, value);
-                if (err != CborNoError)
-                {
-                    /* Parse error. */
-                    lwm2m_free(data); // Free allocated memory
-                    return err;
-                }
-                // LOG_ARG("CBOR %sTextString: %s", indent, data);
-                // continue;
-                break;
-            }
+    // Advance to the integer value
+    err = cbor_value_advance_fixed(value);
+    if (err != CborNoError)
+    {
+        return err;
+    }
+    // Get the integer value
+    int32_t intValue;
+    err = cbor_value_get_int(value, &intValue);
+    data->value.asInteger = intValue;
 
-            case CborTagType:
-            {
-                CborTag tag;
-                err = cbor_value_get_tag(value, &tag); // can't fail
-                if (err != CborNoError)
-                {
-                    /* Parse error. */
-                    lwm2m_free(data); // Free allocated memory
-                    return err;
-                }
-                // break;
-                LOG_ARG("CBOR 2 CborType type = 0x%x (%d) ", type, type);
-                err = cbor_value_advance(value);
-                if (err != CborNoError)
-                {
-                    /* Parse error. */
-                    lwm2m_free(data); // Free allocated memory
-                    return err;
-                }
-                LOG_ARG("CBOR 3 CborType type = 0x%x (%d) ", type, type);
-
-                // if (value == CborIntegerType)
-                // {
-                //     err = cbor_value_get_int64(value, &data->value.asInteger); // Example: Parse an integer
-                //     if (err != CborNoError) {
-                //         // Error handling
-                //         lwm2m_free(data); // Free allocated memory // Free allocated memory
-                //         return err;
-                //     }
-                //     break;
-                // }
-                break;
-            }
-
-            
-
-            case CborSimpleType:
-            {
-                uint8_t sType;
-                err = cbor_value_get_simple_type(value, &sType); // can't fail
-                    if (err != CborNoError)
-                {
-                    /* Parse error. */
-                    lwm2m_free(data); // Free allocated memory
-                    return err;
-                }
-                break;
-            }
-
-            case CborNullType:
-            {
-                // LOG_ARG("CBOR %sNull", indent);
-                break;
-            }
-
-            case CborUndefinedType:
-            {
-                // LOG_ARG("CBOR %sUndefined", indent);
-                lwm2m_free(data); // Free allocated memory
-                break;
-            }
-
-            case CborBooleanType:
-            {
-                err = cbor_value_get_boolean(value, &data->value.asBoolean );
-                if (err != CborNoError)
-                {
-                    /* Parse error. */
-                    lwm2m_free(data); // Free allocated memory
-                    return err;
-                }
-                break;
-            }
-
-            case CborDoubleType:
-            case CborFloatType:
-            case CborHalfFloatType:
-            {
-                err = cbor_value_get_double(value, &data->value.asFloat );
-                if (err != CborNoError)
-                {
-                    /* Parse error. */
-                    lwm2m_free(data); // Free allocated memory
-                    return err;
-                }
-                break;
-            }
-
-            case CborInvalidType:
-            {
-                /* Can't happen. */
-                // LOG_ARG("CBOR %sInvalidType", indent);
-                lwm2m_free(data); // Free allocated memory
-                break;
-            }
-
-            err = cbor_value_advance_fixed(value);
-            if (err != CborNoError)
-            {
-                /* Parse error. */
-                lwm2m_free(data); // Free allocated memory
-                return err;
-            }
-        
-            // Move to the next CBOR data item
-            // err = cbor_value_advance(&value);
-            // if (err != CborNoError) {
-            //     // Error handling
-            //     lwm2m_free(data); // Free allocated memory
-            //     return err;
-            // }
-
-            dataSize++;
-            LOG_ARG("CBOR 2 cbor_value_at_end (%d) ", cbor_value_at_end(value));
-        } /// !switch
-    // } /// !while
+    // Print the parsed integer value
+    LOG_ARG("Parsed integer value: %d\n", intValue);
+       
     return CborNoError;
 }
 
@@ -260,6 +99,11 @@ int cbor_parse(const uint8_t * buffer,
     // Return the size of the parsed data
     return dataSize;
 }
+
+
+
+
+
 
 int cbor_serialize(bool isResourceInstance, 
                   int size,
