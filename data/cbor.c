@@ -162,32 +162,30 @@ int cbor_parse(const uint8_t * buffer,
     size_t dataSize = 0;
     lwm2m_data_t *data = NULL;
     CborError err;
-    
-    LOG("CBOR CHECKPOINT #1");
-    // Parse the CBOR data and populate the lwm2m_data_t structure
-    err = cbor_parser_init(buffer, bufferLen, 0, &parser, &value);    
 
-    if (err == CborNoError)
-    {
-        err = cbor_value_validate(&value,CborValidateStrictMode);
-    }
- 
-    // if (err == CborNoError)
-    // {
-    //     err = dumprecursive(&value, 0);
-    // }
- 
+    LOG_ARG("bufferLen: %d", bufferLen);
+
+    *dataP = NULL;
+    
+    err = cbor_parser_init(buffer, bufferLen, 0, &parser, &value);    
     if (err != CborNoError)
     {
-        LOG_ARG("CBOR parsing failure at offset %ld: %s", value.source.ptr - buffer, cbor_error_string(err));
+        LOG("cbor_parser_init FAILED");
+        return err;
     }
 
-    LOG("CBOR CHECKPOINT #2");
+    err = cbor_value_validate(&value, CborValidateStrictMode);
+    if (err != CborNoError)
+    {
+        LOG("cbor_value_validate FAILED");
+        LOG_ARG("CBOR parsing failure at offset %ld: %s", value.source.ptr - buffer, cbor_error_string(err));
+        return err;
+    }
+
     // while (!cbor_value_at_end(&value)) 
     // {
-        LOG("CBOR CHECKPOINT #3");
         data = lwm2m_data_new(dataSize + 1);
-        LOG("CBOR CHECKPOINT #4");
+
         if (dataSize >= 1)
         {
             if (data == NULL)
@@ -201,16 +199,11 @@ int cbor_parse(const uint8_t * buffer,
                 lwm2m_free(*dataP);
             }
         }
-        LOG("CBOR CHECKPOINT #5");
-        // // Initialize the new data structure element
-        // lwm2m_data_t *currentData = &data[dataSize];
-        // memset(currentData, 0, sizeof(lwm2m_data_t));
 
         CborType type = cbor_value_get_type(&value);
-        LOG("CBOR CHECKPOINT #6");
+
         switch (type)
         {
-        
             case CborArrayType:
             case CborMapType:
             {
@@ -388,6 +381,7 @@ int cbor_serialize(bool isResourceInstance,
     uint8_t buff[100];
 
     CborEncoder encoder;
+    // CborError err;
     // CborType type = cbor_value_get_type(it);
 
     int length;
