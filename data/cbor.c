@@ -245,7 +245,7 @@ int cbor_parse(const uint8_t * buffer,
                 if (err != CborNoError) {
                     // Error handling
                     lwm2m_free(data); // Free allocated memory // Free allocated memory
-                    return -1;
+                    return err;
                 }
                 break;
             }
@@ -284,18 +284,26 @@ int cbor_parse(const uint8_t * buffer,
             case CborTagType:
             {
                 CborTag tag;
-                cbor_value_get_tag(&value, &tag); // can't fail
-                // LOG_ARG("CBOR %sTag(%d)", indent, tag);
-                lwm2m_free(data); // Free allocated memory
+                err = cbor_value_get_tag(&value, &tag); // can't fail
+                if (err != CborNoError)
+                {
+                    /* Parse error. */
+                    lwm2m_free(data); // Free allocated memory
+                    return err;
+                }
                 break;
             }
     
             case CborSimpleType:
             {
                 uint8_t sType;
-                cbor_value_get_simple_type(&value, &sType); // can't fail
-                // LOG_ARG("CBOR %sSimple(%u)", indent, sType);
-                lwm2m_free(data); // Free allocated memory
+                err = cbor_value_get_simple_type(&value, &sType); // can't fail
+                 if (err != CborNoError)
+                {
+                    /* Parse error. */
+                    lwm2m_free(data); // Free allocated memory
+                    return err;
+                }
                 break;
             }
     
@@ -315,9 +323,13 @@ int cbor_parse(const uint8_t * buffer,
             case CborBooleanType:
             {
                 bool val;
-                cbor_value_get_boolean(&value, &val); // can't fail
-                // LOG_ARG("CBOR %sBoolean: %s", indent, val ? "true" : "false");
-                lwm2m_free(data); // Free allocated memory
+                err = cbor_value_get_boolean(&value, &val); // can't fail
+                 if (err != CborNoError)
+                {
+                    /* Parse error. */
+                    lwm2m_free(data); // Free allocated memory
+                    return err;
+                }
                 break;
             }
     
@@ -342,7 +354,7 @@ int cbor_parse(const uint8_t * buffer,
             err = cbor_value_advance_fixed(&value);
             if (err != CborNoError)
             {
-                // Error handling
+                /* Parse error. */
                 lwm2m_free(data); // Free allocated memory
                 return err;
             }
@@ -361,6 +373,7 @@ int cbor_parse(const uint8_t * buffer,
 
     // Assign the parsed data to the output pointer
     *dataP = data;
+    lwm2m_free(data); // Free allocated memory
 
     // Return the size of the parsed data
     return dataSize;
