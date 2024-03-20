@@ -731,7 +731,7 @@ int lwm2m_data_serialize(lwm2m_uri_t * uriP,
 {
     LOG_URI(uriP);
     LOG_ARG("size: %d, formatP: %s", size, STR_MEDIA_TYPE(*formatP));
-
+    LOG("lwm2m_data_serialize");
     // Check format
     if (*formatP == LWM2M_CONTENT_TEXT
      || *formatP == LWM2M_CONTENT_OPAQUE)
