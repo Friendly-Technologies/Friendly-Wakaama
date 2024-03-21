@@ -152,11 +152,36 @@ int cbor_serialize(bool isResourceInstance,
             length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
             break;
         case LWM2M_TYPE_INTEGER:
+            err = cbor_encode_int(&encoder,dataP->value.asInteger);
+            if (err != CborNoError) {
+                free(encoderBuffer);
+                return err; 
+            }
+            length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
+            break;
         case LWM2M_TYPE_UNSIGNED_INTEGER:
+            err = cbor_encode_uint(&encoder, dataP->value.asUnsigned);
+            if (err != CborNoError) {
+                free(encoderBuffer);
+                return err; 
+            }
+            length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
             break;
         case LWM2M_TYPE_FLOAT:
+            err = cbor_encode_double(&encoder, dataP->value.asFloat);
+            if (err != CborNoError) {
+                free(encoderBuffer);
+                return err; 
+            }
+            length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
             break;
         case LWM2M_TYPE_BOOLEAN:
+            err = cbor_encode_boolean(&encoder, dataP->value.asBoolean);
+            if (err != CborNoError) {
+                free(encoderBuffer);
+                return err; 
+            }
+            length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
             break;
     }
 
