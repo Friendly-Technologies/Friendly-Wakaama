@@ -28,8 +28,8 @@ CborError cbor_dump_recursive(CborValue *value, lwm2m_data_t* data, size_t dataS
     }
     LOG_ARG("Parsed TAG: %lu (0x%x)\n", tag, tag);
 
-    if (tag != 0x19) {
-        LOG("Error: Expected tag 0x19\n");
+    if (tag != 0xc0) {
+        LOG("Error: Expected tag 0xc0\n");
     }
 
     // Advance to the integer value
@@ -100,24 +100,15 @@ int cbor_parse(const uint8_t * buffer,
     return dataSize;
 }
 
-
-
-
-
-
 int cbor_serialize(bool isResourceInstance, 
-                  int size,
-                  lwm2m_data_t * dataP,
-                  uint8_t ** bufferP)
+                   int size,
+                   lwm2m_data_t *dataP,
+                   uint8_t **bufferP) 
 {
-    //Encode
-    uint8_t buff[100];
-
     CborEncoder encoder;
-    // CborError err;
-    // CborType type = cbor_value_get_type(it);
+    CborError err;
 
-    int length;
+    int length = 0;
 
     LOG_ARG("cbor_serialize: dataP.type = %d, ", dataP->type);
     LOG_ARG("cbor_serialize: dataP.ID = %d, ", dataP->id);
@@ -130,28 +121,59 @@ int cbor_serialize(bool isResourceInstance,
     LOG_ARG("cbor_serialize: dataP.asObjLink.objectId = %d, ", dataP->value.asObjLink.objectId);
     LOG_ARG("cbor_serialize: dataP.asObjLink.objectInstanceId = %d, ", dataP->value.asObjLink.objectInstanceId);
 
-
-    LOG_ARG("isResourceInstance: %s, size: %d", isResourceInstance?"true":"false", size);
-
-    cbor_encoder_init(&encoder, buff, sizeof(buff), 0);
-
     *bufferP = NULL;
-    // length = prv_getLength(size, dataP);
-    if (length <= 0) return length;
 
-    *bufferP = (uint8_t *)lwm2m_malloc(length);
-    if (*bufferP == NULL) return 0;
-
-    if (length < 0)
-    {
-        lwm2m_free(*bufferP);
-        *bufferP = NULL;
+    // Calculate the size needed for the encoder buffer
+    size_t bufferSize = 1024; // Start with a reasonable default size
+    uint8_t *encoderBuffer = (uint8_t *)malloc(bufferSize);
+    if (encoderBuffer == NULL) {
+        return 0; // Memory allocation failed
     }
 
+    // Initialize the CborEncoder with the encoder buffer
+    cbor_encoder_init(&encoder, encoderBuffer, bufferSize, 0);
+
+    // Serialize the data based on its type
+    switch (dataP->type) {
+        case LWM2M_TYPE_UNDEFINED:
+        case LWM2M_TYPE_OBJECT:
+        case LWM2M_TYPE_OBJECT_INSTANCE:
+        case LWM2M_TYPE_MULTIPLE_RESOURCE:
+        case LWM2M_TYPE_OBJECT_LINK:
+            break;
+        case LWM2M_TYPE_STRING:
+        case LWM2M_TYPE_OPAQUE:
+        case LWM2M_TYPE_CORE_LINK:
+            err = cbor_encode_text_string(&encoder,(char *) dataP->value.asBuffer.buffer, dataP->value.asBuffer.length);
+            if (err != CborNoError) {
+                free(encoderBuffer);
+                return err; 
+            }
+            length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
+            break;
+        case LWM2M_TYPE_INTEGER:
+        case LWM2M_TYPE_UNSIGNED_INTEGER:
+            break;
+        case LWM2M_TYPE_FLOAT:
+            break;
+        case LWM2M_TYPE_BOOLEAN:
+            break;
+    }
+
+    // Allocate memory for the serialized buffer
+    *bufferP = (uint8_t *)malloc(length);
+    if (*bufferP == NULL) {
+        free(encoderBuffer);
+        return 0; // Memory allocation failed
+    }
+
+    // Copying the serialized data to the output buffer
+    memcpy(*bufferP, encoderBuffer, length);
+
+    // Clean up
+    free(encoderBuffer);
+
     LOG_ARG("returning %u", length);
-
     return length;
-
-
-    return 0;
 }
+
