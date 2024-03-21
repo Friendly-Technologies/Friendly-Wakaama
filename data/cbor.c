@@ -140,10 +140,17 @@ int cbor_serialize(bool isResourceInstance,
         case LWM2M_TYPE_OBJECT_INSTANCE:
         case LWM2M_TYPE_MULTIPLE_RESOURCE:
         case LWM2M_TYPE_OBJECT_LINK:
+        case LWM2M_TYPE_CORE_LINK:
+            break;
+        case LWM2M_TYPE_OPAQUE:
+            err = cbor_encode_byte_string(&encoder, dataP->value.asBuffer.buffer, dataP->value.asBuffer.length);
+            if (err != CborNoError) {
+                free(encoderBuffer);
+                return err; 
+            }
+            length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
             break;
         case LWM2M_TYPE_STRING:
-        case LWM2M_TYPE_OPAQUE:
-        case LWM2M_TYPE_CORE_LINK:
             err = cbor_encode_text_string(&encoder,(char *) dataP->value.asBuffer.buffer, dataP->value.asBuffer.length);
             if (err != CborNoError) {
                 free(encoderBuffer);
