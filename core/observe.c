@@ -843,6 +843,14 @@ void observe_step(lwm2m_context_t * contextP,
     }
 }
 
+void lwm2m_observe_step(lwm2m_context_t * contextP) {
+    time_t tv_sec;
+    time_t timeout = 0;
+
+    tv_sec = lwm2m_gettime();
+    observe_step(contextP, tv_sec, &timeout);
+}
+
 #endif
 
 #ifdef LWM2M_SERVER_MODE
