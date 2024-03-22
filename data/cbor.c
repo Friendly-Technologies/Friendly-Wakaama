@@ -61,6 +61,11 @@ int cbor_parse(const uint8_t * buffer,
 
     LOG_ARG("bufferLen: %d", bufferLen);
 
+    for (uint16_t i = 0; i < bufferLen; i++)
+    {
+        lwm2m_printf("%x", buffer[i]);
+    }
+
     *dataP = NULL;
     
     /// Initialize a CBOR parser
@@ -139,9 +144,20 @@ int cbor_serialize(bool isResourceInstance,
         case LWM2M_TYPE_OBJECT:
         case LWM2M_TYPE_OBJECT_INSTANCE:
         case LWM2M_TYPE_MULTIPLE_RESOURCE:
-        case LWM2M_TYPE_OBJECT_LINK:
-        case LWM2M_TYPE_CORE_LINK:
             break;
+        case LWM2M_TYPE_OBJECT_LINK:
+        {
+            char buffer[12]; // Sufficient buffer to hold the string representation (e.g., "65535:65535" -> 5 + 1 + 5 == 11 symbols)
+            snprintf(buffer, sizeof(buffer), "%u:%u", dataP->value.asObjLink.objectId, dataP->value.asObjLink.objectInstanceId);
+            err = cbor_encode_text_string(&encoder, buffer, strlen(buffer));
+            if (err != CborNoError) {
+                free(encoderBuffer);
+                return err; 
+            }
+            length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
+
+            break;
+        }
         case LWM2M_TYPE_OPAQUE:
             err = cbor_encode_byte_string(&encoder, dataP->value.asBuffer.buffer, dataP->value.asBuffer.length);
             if (err != CborNoError) {
@@ -151,6 +167,7 @@ int cbor_serialize(bool isResourceInstance,
             length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
             break;
         case LWM2M_TYPE_STRING:
+        case LWM2M_TYPE_CORE_LINK:
             err = cbor_encode_text_string(&encoder,(char *) dataP->value.asBuffer.buffer, dataP->value.asBuffer.length);
             if (err != CborNoError) {
                 free(encoderBuffer);
@@ -201,6 +218,11 @@ int cbor_serialize(bool isResourceInstance,
 
     // Copying the serialized data to the output buffer
     memcpy(*bufferP, encoderBuffer, length);
+
+    for (uint16_t i = 0; i < length; i++)
+    {
+        lwm2m_printf("%x", bufferP[i]);
+    }
 
     // Clean up
     free(encoderBuffer);
