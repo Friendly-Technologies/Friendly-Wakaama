@@ -72,14 +72,49 @@ int cbor_parse(lwm2m_uri_t * uriP,
                 LOG_ARG("Parsed integer value: %d\n", &data->value.asInteger);
                 break;
             case CborByteStringType:
-                err = cbor_value_get_byte_string_chunk(&value, (const uint8_t**)&data->value.asBuffer.buffer, &data->value.asBuffer.length, &value);
-                if (err != CborNoError)
                 {
-                    LOG("Error: cbor_value_get_byte_string_chunk \n");
-                    return err;
+                    uint8_t *temp = NULL;
+                    size_t temPlen = 0;
+
+                    err = cbor_value_calculate_string_length(&value, &temPlen);
+                    if (err != CborNoError) {
+                        LOG("Error: cbor_value_calculate_string_length\n");
+                        return err;
+                    }
+
+                    temp = (uint8_t *)malloc(temPlen + 1); // +1 for null terminator
+                    if (temp == NULL) {
+                        LOG("Error: Memory allocation failed\n");
+                        return CborErrorOutOfMemory;
+                    }
+
+                    // Copy chunks of the text string until all chunks are retrieved
+                    uint8_t *currPos = temp;
+                    do {
+                        size_t chunkLen = temPlen - (currPos - temp);
+                        err = cbor_value_copy_byte_string(&value, currPos, &chunkLen, &value);
+                        if (err != CborNoError) {
+                            LOG("Error: cbor_value_copy_text_string\n");
+                            free(temp); // Clean up allocated memory
+                            return err;
+                        }
+
+                        // Move the current position pointer to the end of the copied chunk
+                        currPos += chunkLen;
+
+                    } while (!cbor_value_at_end(&value));
+
+                    // Null-terminate the string
+                    *currPos = '\0';
+
+                    // Set the buffer and its length in the data structure
+                    data->value.asBuffer.buffer = (uint8_t *)temp;
+                    data->value.asBuffer.length = temPlen;
+
+                    // Set the type of the data
+                    data->type = LWM2M_TYPE_STRING;
+                    break;
                 }
-                data->type = LWM2M_TYPE_OPAQUE;
-                break;
             case CborTextStringType:
                 {
                     char *temp = NULL;
@@ -182,10 +217,10 @@ int cbor_parse(lwm2m_uri_t * uriP,
         
     }
 
-    // *dataP = data;
     dataSize++; // temporary we set dataSize == 1
-    memcpy(dataP, data, dataSize * sizeof(lwm2m_data_t));
-    lwm2m_data_free(dataSize, data);
+    *dataP = data;
+    // memcpy(dataP, data, dataSize * sizeof(lwm2m_data_t)); // Copying the parsed data to the output lwm2m_data_t buffer
+    // lwm2m_data_free(dataSize, data);
 
     LOG_ARG("cbor_parse: uriP.objectId = %d, ", uriP->objectId);
     LOG_ARG("cbor_parse: uriP.instanceId = %d, ", uriP->instanceId);
