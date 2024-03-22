@@ -1,87 +1,6 @@
 #include "internals.h"
 #include <cbor.h>
 
-CborError cbor_dump_recursive(CborValue *value, lwm2m_data_t* data, size_t dataSize, int nestingLevel)
-{
-    char indent[32];
-    int idx = 0, lvl = nestingLevel;
- 
-    while (lvl--)
-    {
-        indent[idx++] = ' ';
-        indent[idx++] = ' ';
-    }
-    indent[idx] = '\0';
- 
-    CborError err = CborErrorUnknownTag;
-    CborTag tag;
-
-    if (!cbor_value_is_tag(value)) {
-        CborType type = cbor_value_get_type(value);
- 
-        switch (type)
-        {
-            case CborArrayType:
-            case CborMapType:
-            case CborTagType:
-                break;
-            case CborIntegerType:
-                err = cbor_value_get_int64_checked(value, &data->value.asInteger);
-                if (err != CborNoError)
-                {
-                    LOG("Error: cbor_value_get_int \n");
-                    return err;
-                }
-                data->type = LWM2M_TYPE_INTEGER;
-                // Print the parsed integer value
-                LOG_ARG("Parsed integer value: %d\n", data->value.asInteger);
-                break;
-            case CborByteStringType:
-            case CborTextStringType:
-            case CborSimpleType:
-            case CborBooleanType:
-            case CborUndefinedType:
-            case CborNullType:
-            case CborHalfFloatType:
-            case CborFloatType:
-            case CborDoubleType:
-            case CborInvalidType:
-                break;
-        }
-        return CborNoError;
-    }
-    else {
-
-        err = cbor_value_get_tag(value, &tag);
-        if (err != CborNoError)
-        {
-            return err;
-        }
-        LOG_ARG("Parsed TAG: %lu (0x%x)\n", tag, tag);
-
-        if (tag != 0xc0) {
-            LOG("Error: Expected tag 0xc0\n");
-        }
-
-        // Advance to the integer value
-        err = cbor_value_advance_fixed(value);
-        if (err != CborNoError)
-        {
-            return err;
-        }
-        err = cbor_value_get_int64_checked(value, &data->value.asInteger);
-        if (err != CborNoError)
-        {
-            LOG("Error: cbor_value_get_int \n");
-            return err;
-        }
-        // Print the parsed integer value
-        LOG_ARG("Parsed integer value: %d\n", data->value.asInteger);
-        
-        return CborNoError;
-    }
-}
-
 int cbor_parse(lwm2m_uri_t * uriP,
               const uint8_t * buffer,
               size_t bufferLen,
@@ -89,9 +8,10 @@ int cbor_parse(lwm2m_uri_t * uriP,
 {
     CborParser parser;
     CborValue value;
+    CborTag tag;
+    CborError err;
     size_t dataSize = 0;
     lwm2m_data_t *data = NULL;
-    CborError err;
 
     LOG_ARG("bufferLen: %d", bufferLen);
 
@@ -106,7 +26,6 @@ int cbor_parse(lwm2m_uri_t * uriP,
 
     *dataP = NULL;
     
-    /// Initialize a CBOR parser
     err = cbor_parser_init(buffer, bufferLen, 0, &parser, &value);    
     if (err != CborNoError)
     {
@@ -122,22 +41,151 @@ int cbor_parse(lwm2m_uri_t * uriP,
         return err;
     }
 
-    /// Allocate memory for data if needed
+    /// Allocate memory for the data 
     data = lwm2m_data_new(dataSize + 1);
     if (data == NULL) {
-        return -1; // Memory allocation failed
+        lwm2m_data_free(dataSize, data);
+        return 0; // Memory allocation failed
     }
-    data->id = uriP->resourceId;
+    data->id = uriP->resourceId; // setting data->id to the resource ID
 
-    err = cbor_dump_recursive(&value, data, dataSize, 0);
-    if (err != CborNoError)
+    if (!cbor_value_is_tag(&value)) 
     {
-        LOG_ARG("CBOR parsing failure at offset %ld: %s", value.source.ptr - buffer, cbor_error_string(err));
-        return err;
+        CborType type = cbor_value_get_type(&value);
+        LOG_ARG("CBOR type 0x%x", type);
+ 
+        switch (type)
+        {
+            case CborArrayType:
+            case CborMapType:
+            case CborTagType:
+                break;
+            case CborSimpleType:
+            case CborIntegerType:
+                err = cbor_value_get_int64_checked(&value, &data->value.asInteger);
+                if (err != CborNoError)
+                {
+                    LOG("Error: cbor_value_get_int64_checked \n");
+                    return err;
+                }
+                data->type = LWM2M_TYPE_INTEGER;
+                LOG_ARG("Parsed integer value: %d\n", &data->value.asInteger);
+                break;
+            case CborByteStringType:
+                err = cbor_value_get_byte_string_chunk(&value, (const uint8_t**)&data->value.asBuffer.buffer, &data->value.asBuffer.length, &value);
+                if (err != CborNoError)
+                {
+                    LOG("Error: cbor_value_get_byte_string_chunk \n");
+                    return err;
+                }
+                data->type = LWM2M_TYPE_OPAQUE;
+                break;
+            case CborTextStringType:
+                {
+                    char *temp = NULL;
+                    size_t temPlen = 0;
+
+                    err = cbor_value_calculate_string_length(&value, &temPlen);
+                    if (err != CborNoError) {
+                        LOG("Error: cbor_value_calculate_string_length\n");
+                        return err;
+                    }
+
+                    temp = (char *)malloc(temPlen + 1); // +1 for null terminator
+                    if (temp == NULL) {
+                        LOG("Error: Memory allocation failed\n");
+                        return CborErrorOutOfMemory;
+                    }
+
+                    // Copy chunks of the text string until all chunks are retrieved
+                    char *currPos = temp;
+                    do {
+                        size_t chunkLen = temPlen - (currPos - temp);
+                        err = cbor_value_copy_text_string(&value, currPos, &chunkLen, &value);
+                        if (err != CborNoError) {
+                            LOG("Error: cbor_value_copy_text_string\n");
+                            free(temp); // Clean up allocated memory
+                            return err;
+                        }
+
+                        // Move the current position pointer to the end of the copied chunk
+                        currPos += chunkLen;
+
+                    } while (!cbor_value_at_end(&value));
+
+                    // Null-terminate the string
+                    *currPos = '\0';
+
+                    // Set the buffer and its length in the data structure
+                    data->value.asBuffer.buffer = (uint8_t *)temp;
+                    data->value.asBuffer.length = temPlen;
+
+                    // Set the type of the data
+                    data->type = LWM2M_TYPE_STRING;
+                    break;
+                }
+            case CborBooleanType:
+                err = cbor_value_get_boolean(&value, &data->value.asBoolean);
+                if (err != CborNoError)
+                {
+                    LOG("Error: cbor_value_get_boolean \n");
+                    return err;
+                }
+                data->type = LWM2M_TYPE_BOOLEAN;
+                LOG_ARG("Parsed bool value: %d\n", &data->value.asBoolean);
+                break;
+            case CborDoubleType:
+            case CborFloatType:
+            case CborHalfFloatType:
+                err = cbor_value_get_double(&value, &data->value.asFloat);
+                if (err != CborNoError)
+                {
+                    LOG("Error: cbor_value_get_double \n");
+                    return err;
+                }
+                data->type = LWM2M_TYPE_FLOAT;
+                LOG_ARG("Parsed float value: %d\n", &data->value.asFloat);
+                break;
+            case CborUndefinedType:
+            case CborNullType:
+            case CborInvalidType:
+                LOG_ARG("CborInvalidType 0x%x\n", CborInvalidType);
+                break;
+        }
+    }
+    else 
+    {
+        // For the TIME-CBOR-type - temporary solution
+        err = cbor_value_get_tag(&value, &tag);
+        if (err != CborNoError)
+        {
+            return err;
+        }
+        LOG_ARG("Parsed TAG: %lu (0x%x)\n", tag, tag);
+
+        if (tag != 0xc0) {
+            LOG("Error: Expected tag 0xc0\n");
+        }
+
+        err = cbor_value_advance_fixed(&value);
+        if (err != CborNoError)
+        {
+            return err;
+        }
+        err = cbor_value_get_int64_checked(&value, &data->value.asInteger);
+        if (err != CborNoError)
+        {
+            LOG("Error: cbor_value_get_int \n");
+            return err;
+        }
+        LOG_ARG("Parsed integer value: %d\n", &data->value.asInteger);
+        
     }
 
-    *dataP = data;
-    dataSize++;
+    // *dataP = data;
+    dataSize++; // temporary we set dataSize == 1
+    memcpy(dataP, data, dataSize * sizeof(lwm2m_data_t));
+    lwm2m_data_free(dataSize, data);
 
     LOG_ARG("cbor_parse: uriP.objectId = %d, ", uriP->objectId);
     LOG_ARG("cbor_parse: uriP.instanceId = %d, ", uriP->instanceId);
@@ -153,8 +201,6 @@ int cbor_parse(lwm2m_uri_t * uriP,
     LOG_ARG("cbor_parse: dataP.asChildrenCount = %d, ", data->value.asChildren.count);
     LOG_ARG("cbor_parse: dataP.asObjLink.objectId = %d, ", data->value.asObjLink.objectId);
     LOG_ARG("cbor_parse: dataP.asObjLink.objectInstanceId = %d, ", data->value.asObjLink.objectInstanceId);
-    
-    // lwm2m_free(data); // Free allocated memory
 
     // Return the size of the parsed data
     return dataSize;
@@ -183,7 +229,6 @@ int cbor_serialize(bool isResourceInstance,
 
     *bufferP = NULL;
 
-    // Calculate the size needed for the encoder buffer
     size_t bufferSize = 1024; // Start with a reasonable default size
     uint8_t *encoderBuffer = (uint8_t *)malloc(bufferSize);
     if (encoderBuffer == NULL) {
@@ -273,13 +318,6 @@ int cbor_serialize(bool isResourceInstance,
 
     // Copying the serialized data to the output buffer
     memcpy(*bufferP, encoderBuffer, length);
-
-    for (uint16_t i = 0; i < length; i++)
-    {
-        lwm2m_printf("%x", bufferP[i]);
-    }
-
-    // Clean up
     free(encoderBuffer);
 
     LOG_ARG("returning %u", length);
