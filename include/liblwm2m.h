@@ -807,8 +807,6 @@ void lwm2m_close(lwm2m_context_t * contextP);
 int lwm2m_step(lwm2m_context_t * contextP, time_t * timeoutP);
 // dispatch received data to liblwm2m
 void lwm2m_handle_packet(lwm2m_context_t *contextP, uint8_t *buffer, size_t length, void *fromSessionH);
-// perform any required observe operations
-void lwm2m_observe_step(lwm2m_context_t * contextP);
 
 #ifdef LWM2M_CLIENT_MODE
 // configure the client side with the Endpoint Name, binding, MSISDN (can be nil), alternative path
