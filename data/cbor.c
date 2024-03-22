@@ -17,39 +17,73 @@ CborError cbor_dump_recursive(CborValue *value, lwm2m_data_t* data, size_t dataS
     CborTag tag;
 
     if (!cbor_value_is_tag(value)) {
-        LOG("Error: Expected a tag\n");
-        return err;
+        CborType type = cbor_value_get_type(value);
+ 
+        switch (type)
+        {
+            case CborArrayType:
+            case CborMapType:
+            case CborTagType:
+                break;
+            case CborIntegerType:
+                err = cbor_value_get_int64_checked(value, &data->value.asInteger);
+                if (err != CborNoError)
+                {
+                    LOG("Error: cbor_value_get_int \n");
+                    return err;
+                }
+                data->type = LWM2M_TYPE_INTEGER;
+                // Print the parsed integer value
+                LOG_ARG("Parsed integer value: %d\n", data->value.asInteger);
+                break;
+            case CborByteStringType:
+            case CborTextStringType:
+            case CborSimpleType:
+            case CborBooleanType:
+            case CborUndefinedType:
+            case CborNullType:
+            case CborHalfFloatType:
+            case CborFloatType:
+            case CborDoubleType:
+            case CborInvalidType:
+                break;
+        }
+        return CborNoError;
     }
+    else {
 
-    err = cbor_value_get_tag(value, &tag);
-    if (err != CborNoError)
-    {
-        return err;
+        err = cbor_value_get_tag(value, &tag);
+        if (err != CborNoError)
+        {
+            return err;
+        }
+        LOG_ARG("Parsed TAG: %lu (0x%x)\n", tag, tag);
+
+        if (tag != 0xc0) {
+            LOG("Error: Expected tag 0xc0\n");
+        }
+
+        // Advance to the integer value
+        err = cbor_value_advance_fixed(value);
+        if (err != CborNoError)
+        {
+            return err;
+        }
+        err = cbor_value_get_int64_checked(value, &data->value.asInteger);
+        if (err != CborNoError)
+        {
+            LOG("Error: cbor_value_get_int \n");
+            return err;
+        }
+        // Print the parsed integer value
+        LOG_ARG("Parsed integer value: %d\n", data->value.asInteger);
+        
+        return CborNoError;
     }
-    LOG_ARG("Parsed TAG: %lu (0x%x)\n", tag, tag);
-
-    if (tag != 0xc0) {
-        LOG("Error: Expected tag 0xc0\n");
-    }
-
-    // Advance to the integer value
-    err = cbor_value_advance_fixed(value);
-    if (err != CborNoError)
-    {
-        return err;
-    }
-    // Get the integer value
-    int32_t intValue;
-    err = cbor_value_get_int(value, &intValue);
-    data->value.asInteger = intValue;
-
-    // Print the parsed integer value
-    LOG_ARG("Parsed integer value: %d\n", intValue);
-       
-    return CborNoError;
 }
 
-int cbor_parse(const uint8_t * buffer,
+int cbor_parse(lwm2m_uri_t * uriP,
+              const uint8_t * buffer,
               size_t bufferLen,
               lwm2m_data_t ** dataP)
 {
@@ -61,10 +95,14 @@ int cbor_parse(const uint8_t * buffer,
 
     LOG_ARG("bufferLen: %d", bufferLen);
 
-    for (uint16_t i = 0; i < bufferLen; i++)
+    LOG("CBOR parse --- >>>>>>>>>>>>> ");
+
+    for (uint16_t i = 0; i <= bufferLen; i++)
     {
         lwm2m_printf("%x", buffer[i]);
     }
+
+    LOG("CBOR parse --- >>>>>>>>>>>>> ");
 
     *dataP = NULL;
     
@@ -85,21 +123,38 @@ int cbor_parse(const uint8_t * buffer,
     }
 
     /// Allocate memory for data if needed
-    if (dataSize == 0) {
-        data = lwm2m_data_new(dataSize + 1);
-        if (data == NULL) {
-            return -1; // Memory allocation failed
-        }
+    data = lwm2m_data_new(dataSize + 1);
+    if (data == NULL) {
+        return -1; // Memory allocation failed
     }
+    data->id = uriP->resourceId;
 
     err = cbor_dump_recursive(&value, data, dataSize, 0);
     if (err != CborNoError)
     {
         LOG_ARG("CBOR parsing failure at offset %ld: %s", value.source.ptr - buffer, cbor_error_string(err));
+        return err;
     }
 
     *dataP = data;
-    lwm2m_free(data); // Free allocated memory
+    dataSize++;
+
+    LOG_ARG("cbor_parse: uriP.objectId = %d, ", uriP->objectId);
+    LOG_ARG("cbor_parse: uriP.instanceId = %d, ", uriP->instanceId);
+    LOG_ARG("cbor_parse: uriP.resourceId = %d, ", uriP->resourceId);
+    LOG("---------------------------");
+    LOG_ARG("cbor_parse: dataP.type = %d, ", data->type);
+    LOG_ARG("cbor_parse: dataP.ID = %d, ", data->id);
+    LOG_ARG("cbor_parse: dataP.asBoolean = %d, ", data->value.asBoolean);
+    LOG_ARG("cbor_parse: dataP.asInteger = %d, ", data->value.asInteger);
+    LOG_ARG("cbor_parse: dataP.asUnsigned = %lu, ", data->value.asUnsigned);
+    LOG_ARG("cbor_parse: dataP.asFloat = %f, ", data->value.asFloat);
+    LOG_ARG("cbor_parse: dataP.asBufferLength = %d, ", data->value.asBuffer.length);
+    LOG_ARG("cbor_parse: dataP.asChildrenCount = %d, ", data->value.asChildren.count);
+    LOG_ARG("cbor_parse: dataP.asObjLink.objectId = %d, ", data->value.asObjLink.objectId);
+    LOG_ARG("cbor_parse: dataP.asObjLink.objectInstanceId = %d, ", data->value.asObjLink.objectInstanceId);
+    
+    // lwm2m_free(data); // Free allocated memory
 
     // Return the size of the parsed data
     return dataSize;
