@@ -252,6 +252,7 @@ static uint8_t prv_set_value(lwm2m_data_t * dataP,
 }
 
 static uint8_t prv_read(lwm2m_context_t *contextP,
+                        lwm2m_server_t *serverP,
                         uint16_t instanceId,
                         int * numDataP,
                         lwm2m_data_t ** dataArrayP,

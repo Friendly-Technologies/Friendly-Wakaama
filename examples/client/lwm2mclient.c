@@ -168,7 +168,7 @@ void handle_value_changed(lwm2m_context_t * lwm2mH,
                 lwm2m_data_encode_nstring(value, valueLength, dataP);
             }
 
-            result = object->writeFunc(lwm2mH, uri->instanceId, 1, dataP, object, LWM2M_WRITE_PARTIAL_UPDATE);
+            result = object->writeFunc(lwm2mH, NULL, uri->instanceId, 1, dataP, object, LWM2M_WRITE_PARTIAL_UPDATE);
             if (COAP_405_METHOD_NOT_ALLOWED == result)
             {
                 switch (uri->objectId)
@@ -487,7 +487,7 @@ static void prv_instance_dump(lwm2m_context_t * lwm2mH,
     uint16_t res;
 
     numData = 0;
-    res = objectP->readFunc(lwm2mH, id, &numData, &dataArray, objectP);
+    res = objectP->readFunc(lwm2mH, NULL, id, &numData, &dataArray, objectP);
     if (res != COAP_205_CONTENT)
     {
         printf("Error ");

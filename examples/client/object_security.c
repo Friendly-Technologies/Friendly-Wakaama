@@ -135,6 +135,7 @@ static uint8_t prv_get_value(lwm2m_data_t * dataP,
 }
 
 static uint8_t prv_security_read(lwm2m_context_t *contextP,
+                                 lwm2m_server_t *serverP,
                                  uint16_t instanceId,
                                  int * numDataP,
                                  lwm2m_data_t ** dataArrayP,
@@ -197,6 +198,7 @@ static uint8_t prv_security_read(lwm2m_context_t *contextP,
 #ifdef LWM2M_BOOTSTRAP
 
 static uint8_t prv_security_write(lwm2m_context_t *contextP,
+                                  lwm2m_server_t *serverP,
                                   uint16_t instanceId,
                                   int numData,
                                   lwm2m_data_t * dataArray,
@@ -425,6 +427,7 @@ static uint8_t prv_security_write(lwm2m_context_t *contextP,
 }
 
 static uint8_t prv_security_delete(lwm2m_context_t *contextP,
+                                   lwm2m_server_t *serverP,
                                    uint16_t id,
                                    lwm2m_object_t * objectP)
 {
@@ -446,6 +449,7 @@ static uint8_t prv_security_delete(lwm2m_context_t *contextP,
 }
 
 static uint8_t prv_security_create(lwm2m_context_t *contextP,
+                                   lwm2m_server_t *serverP,
                                    uint16_t instanceId,
                                    int numData,
                                    lwm2m_data_t * dataArray,
@@ -461,11 +465,11 @@ static uint8_t prv_security_create(lwm2m_context_t *contextP,
     targetP->instanceId = instanceId;
     objectP->instanceList = LWM2M_LIST_ADD(objectP->instanceList, targetP);
 
-    result = prv_security_write(contextP, instanceId, numData, dataArray, objectP, LWM2M_WRITE_REPLACE_RESOURCES);
+    result = prv_security_write(contextP, serverP, instanceId, numData, dataArray, objectP, LWM2M_WRITE_REPLACE_RESOURCES);
 
     if (result != COAP_204_CHANGED)
     {
-        (void)prv_security_delete(contextP, instanceId, objectP);
+        (void)prv_security_delete(contextP, serverP, instanceId, objectP);
     }
     else
     {

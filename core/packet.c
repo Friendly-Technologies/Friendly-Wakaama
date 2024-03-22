@@ -472,6 +472,19 @@ static int prv_send_get_next_block2(lwm2m_context_t * contextP,
     return prv_send_get_block2(contextP, sessionH, blockDataHead, currentMID, block2_num + 1, block2_size);
 }
 
+static lwm2m_server_t * prv_findServer(lwm2m_context_t * contextP, void * sessionH)
+{
+    lwm2m_server_t * targetP;
+    targetP = utils_findServer(contextP, sessionH);
+    #ifdef LWM2M_BOOTSTRAP
+    if (targetP == NULL)
+    {
+        targetP = utils_findBootstrapServer(contextP, sessionH);
+    }
+    #endif
+
+    return targetP;
+}
 
 /* This function is an adaptation of function coap_receive() from Erbium's er-coap-13-engine.c.
  * Erbium is Copyright (c) 2013, Institute for Pervasive Computing, ETH Zurich
@@ -530,14 +543,7 @@ void lwm2m_handle_packet(lwm2m_context_t *contextP, uint8_t *buffer, size_t leng
             } else if (IS_OPTION(message, COAP_OPTION_BLOCK1)) {
 #ifdef LWM2M_CLIENT_MODE
                 // get server
-                lwm2m_server_t * peerP;
-                peerP = utils_findServer(contextP, fromSessionH);
-#ifdef LWM2M_BOOTSTRAP
-                if (peerP == NULL)
-                {
-                    peerP = utils_findBootstrapServer(contextP, fromSessionH);
-                }
-#endif
+                lwm2m_server_t * peerP = prv_findServer(contextP, fromSessionH);
 #else
                 lwm2m_client_t * peerP;
                 multi_option_t * uriPath = message->uri_path;
@@ -677,14 +683,7 @@ void lwm2m_handle_packet(lwm2m_context_t *contextP, uint8_t *buffer, size_t leng
                 if (message->payload_len > lwm2m_get_coap_block_size()) {
 #ifdef LWM2M_CLIENT_MODE
                     // get server
-                    lwm2m_server_t * peerP;
-                    peerP = utils_findServer(contextP, fromSessionH);
-#ifdef LWM2M_BOOTSTRAP
-                    if (peerP == NULL)
-                    {
-                        peerP = utils_findBootstrapServer(contextP, fromSessionH);
-                    }
-#endif
+                    lwm2m_server_t * peerP = prv_findServer(contextP, fromSessionH);
 #else
                     lwm2m_client_t * peerP;
                     peerP = utils_findClient(contextP, fromSessionH);
@@ -728,14 +727,7 @@ void lwm2m_handle_packet(lwm2m_context_t *contextP, uint8_t *buffer, size_t leng
                 if (message->payload_len > lwm2m_get_coap_block_size()) {
 #ifdef LWM2M_CLIENT_MODE
                     // get server
-                    lwm2m_server_t * peerP;
-                    peerP = utils_findServer(contextP, fromSessionH);
-#ifdef LWM2M_BOOTSTRAP
-                    if (peerP == NULL)
-                    {
-                        peerP = utils_findBootstrapServer(contextP, fromSessionH);
-                    }
-#endif
+                    lwm2m_server_t * peerP = prv_findServer(contextP, fromSessionH);
 #else
                     lwm2m_client_t * peerP;
                     peerP = utils_findClient(contextP, fromSessionH);
@@ -771,14 +763,7 @@ void lwm2m_handle_packet(lwm2m_context_t *contextP, uint8_t *buffer, size_t leng
                 } else if (IS_OPTION(message, COAP_OPTION_BLOCK2)) {
 #ifdef LWM2M_CLIENT_MODE
                     // get server
-                    lwm2m_server_t * peerP;
-                    peerP = utils_findServer(contextP, fromSessionH);
-#ifdef LWM2M_BOOTSTRAP
-                    if (peerP == NULL)
-                    {
-                        peerP = utils_findBootstrapServer(contextP, fromSessionH);
-                    }
-#endif
+                    lwm2m_server_t * peerP = prv_findServer(contextP, fromSessionH);
 #else
                     lwm2m_client_t * peerP;
                     peerP = utils_findClient(contextP, fromSessionH);
