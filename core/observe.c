@@ -541,7 +541,7 @@ void observe_step(lwm2m_context_t * contextP,
         {
             lwm2m_data_t *valueP;
 
-            if (COAP_205_CONTENT != object_readData(contextP, &targetP->uri, &size, &dataP)) continue;
+            if (COAP_205_CONTENT != object_readData(contextP, NULL, &targetP->uri, &size, &dataP)) continue;
             valueP = dataP;
 #ifndef LWM2M_VERSION_1_0
             if (LWM2M_URI_IS_SET_RESOURCE_INSTANCE(&targetP->uri)
@@ -792,7 +792,7 @@ void observe_step(lwm2m_context_t * contextP,
                         }
                         else
                         {
-                            if (COAP_205_CONTENT != object_read(contextP, &targetP->uri, NULL, 0, &(watcherP->format), &buffer, &length))
+                            if (COAP_205_CONTENT != object_read(contextP, NULL, &targetP->uri, NULL, 0, &(watcherP->format), &buffer, &length))
                             {
                                 buffer = NULL;
                                 break;
@@ -841,6 +841,14 @@ void observe_step(lwm2m_context_t * contextP,
         if (dataP != NULL) lwm2m_data_free(size, dataP);
         if (buffer != NULL) lwm2m_free(buffer);
     }
+}
+
+void lwm2m_observe_step(lwm2m_context_t * contextP) {
+    time_t tv_sec;
+    time_t timeout = 0;
+
+    tv_sec = lwm2m_gettime();
+    observe_step(contextP, tv_sec, &timeout);
 }
 
 #endif

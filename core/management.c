@@ -211,7 +211,7 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
                 lwm2m_data_t * dataP = NULL;
                 int size = 0;
 
-                result = object_readData(contextP, uriP, &size, &dataP);
+                result = object_readData(contextP, serverP, uriP, &size, &dataP);
                 if (COAP_205_CONTENT == result)
                 {
                     result = utils_getResponseFormat(message->accept_num,
@@ -257,11 +257,12 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
                   && message->accept[0] == APPLICATION_LINK_FORMAT)
             {
                 format = LWM2M_CONTENT_LINK;
-                result = object_discover(contextP, uriP, serverP, &buffer, &length);
+                result = object_discover(contextP, serverP, uriP, &buffer, &length);
             }
             else
             {
                 result = object_read(contextP,
+                                     serverP,
                                      uriP,
                                      message->accept,
                                      message->accept_num,
@@ -289,22 +290,22 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
             {
                 if (!LWM2M_URI_IS_SET_INSTANCE(uriP))
                 {
-                    result = object_raw_block1_create(contextP, uriP, format, message->payload, message->payload_len, message->block1_num, message->block1_more);
+                    result = object_raw_block1_create(contextP, serverP, uriP, format, message->payload, message->payload_len, message->block1_num, message->block1_more);
                 }
                 else if (!LWM2M_URI_IS_SET_RESOURCE(uriP))
                 {
-                    result = object_raw_block1_write(contextP, uriP, format, message->payload, message->payload_len, message->block1_num, message->block1_more);
+                    result = object_raw_block1_write(contextP, serverP, uriP, format, message->payload, message->payload_len, message->block1_num, message->block1_more);
                 }
                 else
                 {
-                    result = object_raw_block1_execute(contextP, uriP, message->payload, message->payload_len, message->block1_num, message->block1_more);
+                    result = object_raw_block1_execute(contextP, serverP, uriP, message->payload, message->payload_len, message->block1_num, message->block1_more);
                 }
                 break;
             }
 #endif
             if (!LWM2M_URI_IS_SET_INSTANCE(uriP))
             {
-                result = object_create(contextP, uriP, format, message->payload, message->payload_len);
+                result = object_create(contextP, serverP, uriP, format, message->payload, message->payload_len);
                 if (result == COAP_201_CREATED)
                 {
                     //longest uri is /65535/65535 = 12 + 1 (null) chars
@@ -339,12 +340,12 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
                 }
                 else
                 {
-                    result = object_execute(contextP, uriP, message->payload, message->payload_len);
+                    result = object_execute(contextP, serverP, uriP, message->payload, message->payload_len);
                 }
             }
             else
             {
-                result = object_write(contextP, uriP, format, message->payload, message->payload_len, true);
+                result = object_write(contextP, serverP, uriP, format, message->payload, message->payload_len, true);
             }
         }
         break;
@@ -354,7 +355,7 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
 #ifdef LWM2M_RAW_BLOCK1_REQUESTS
             if (IS_OPTION(message, COAP_OPTION_BLOCK1))
             {
-                result = object_raw_block1_write(contextP, uriP, format, message->payload, message->payload_len, message->block1_num, message->block1_more);
+                result = object_raw_block1_write(contextP, serverP, uriP, format, message->payload, message->payload_len, message->block1_num, message->block1_more);
                 break;
             }
 #endif
@@ -373,7 +374,7 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
             }
             else if (LWM2M_URI_IS_SET_INSTANCE(uriP))
             {
-                result = object_write(contextP, uriP, format, message->payload, message->payload_len, false);
+                result = object_write(contextP, serverP, uriP, format, message->payload, message->payload_len, false);
             }
             else
             {
@@ -390,7 +391,7 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
             }
             else
             {
-                result = object_delete(contextP, uriP);
+                result = object_delete(contextP, serverP, uriP);
                 if (result == COAP_202_DELETED)
                 {
                     lwm2m_update_registration(contextP, 0, false, true);
