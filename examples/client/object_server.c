@@ -76,9 +76,11 @@ typedef struct _server_instance_
 } server_instance_t;
 
 static uint8_t prv_server_delete(lwm2m_context_t *contextP,
+                                 lwm2m_server_t *serverP,
                                  uint16_t id,
                                  lwm2m_object_t * objectP);
 static uint8_t prv_server_create(lwm2m_context_t *contextP,
+                                 lwm2m_server_t *serverP,
                                  uint16_t instanceId,
                                  int numData,
                                  lwm2m_data_t * dataArray,
@@ -220,6 +222,7 @@ static uint8_t prv_get_value(lwm2m_data_t * dataP,
 }
 
 static uint8_t prv_server_read(lwm2m_context_t *contextP,
+                               lwm2m_server_t *serverP,
                                uint16_t instanceId,
                                int * numDataP,
                                lwm2m_data_t ** dataArrayP,
@@ -386,6 +389,7 @@ static uint8_t prv_server_read(lwm2m_context_t *contextP,
 }
 
 static uint8_t prv_server_discover(lwm2m_context_t *contextP,
+                                   lwm2m_server_t *serverP,
                                    uint16_t instanceId,
                                    int * numDataP,
                                    lwm2m_data_t ** dataArrayP,
@@ -645,6 +649,7 @@ static uint8_t prv_set_int_value(lwm2m_data_t * dataArray, uint32_t * data) {
 }
 
 static uint8_t prv_server_write(lwm2m_context_t *contextP,
+                                lwm2m_server_t *serverP,
                                 uint16_t instanceId,
                                 int numData,
                                 lwm2m_data_t * dataArray,
@@ -663,10 +668,10 @@ static uint8_t prv_server_write(lwm2m_context_t *contextP,
 
     if (writeType == LWM2M_WRITE_REPLACE_INSTANCE)
     {
-        result = prv_server_delete(contextP, instanceId, objectP);
+        result = prv_server_delete(contextP, serverP, instanceId, objectP);
         if (result == COAP_202_DELETED)
         {
-            result = prv_server_create(contextP, instanceId, numData, dataArray, objectP);
+            result = prv_server_create(contextP, serverP, instanceId, numData, dataArray, objectP);
             if (result == COAP_201_CREATED)
             {
                 result = COAP_204_CHANGED;
@@ -940,7 +945,8 @@ static uint8_t prv_server_write(lwm2m_context_t *contextP,
     return result;
 }
 
-static uint8_t prv_server_execute(lwm2m_context_t *contextP,
+static uint8_t prv_server_execute(lwm2m_context_t *contextP,    
+                                  lwm2m_server_t *serverP,
                                   uint16_t instanceId,
                                   uint16_t resourceId,
                                   uint8_t * buffer,
@@ -971,6 +977,7 @@ static uint8_t prv_server_execute(lwm2m_context_t *contextP,
 }
 
 static uint8_t prv_server_delete(lwm2m_context_t *contextP,
+                                 lwm2m_server_t *serverP,
                                  uint16_t id,
                                  lwm2m_object_t * objectP)
 {
@@ -988,6 +995,7 @@ static uint8_t prv_server_delete(lwm2m_context_t *contextP,
 }
 
 static uint8_t prv_server_create(lwm2m_context_t *contextP,
+                                 lwm2m_server_t *serverP,
                                  uint16_t instanceId,
                                  int numData,
                                  lwm2m_data_t * dataArray,
@@ -1013,11 +1021,11 @@ static uint8_t prv_server_create(lwm2m_context_t *contextP,
 #endif
     objectP->instanceList = LWM2M_LIST_ADD(objectP->instanceList, serverInstance);
 
-    result = prv_server_write(contextP, instanceId, numData, dataArray, objectP, LWM2M_WRITE_REPLACE_RESOURCES);
+    result = prv_server_write(contextP, serverP, instanceId, numData, dataArray, objectP, LWM2M_WRITE_REPLACE_RESOURCES);
 
     if (result != COAP_204_CHANGED)
     {
-        (void)prv_server_delete(contextP, instanceId, objectP);
+        (void)prv_server_delete(contextP, serverP, instanceId, objectP);
     }
     else
     {

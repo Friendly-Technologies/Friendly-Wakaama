@@ -267,7 +267,7 @@ static uint8_t prv_readUint(lwm2m_context_t *contextP,
         return COAP_500_INTERNAL_SERVER_ERROR;
     }
     dataP[0].id = resourceId;
-    result = objP->readFunc(contextP, instanceId, &size, &dataP, objP);
+    result = objP->readFunc(contextP, NULL, instanceId, &size, &dataP, objP);
     if (result == COAP_205_CONTENT)
     {
         if (lwm2m_data_decode_uint(dataP, valueP))
@@ -297,7 +297,7 @@ static uint8_t prv_readBoolean(lwm2m_context_t *contextP,
         return COAP_500_INTERNAL_SERVER_ERROR;
     }
     dataP[0].id = resourceId;
-    result = objP->readFunc(contextP, instanceId, &size, &dataP, objP);
+    result = objP->readFunc(contextP, NULL, instanceId, &size, &dataP, objP);
     if (result == COAP_205_CONTENT)
     {
         if (lwm2m_data_decode_bool(dataP, valueP))

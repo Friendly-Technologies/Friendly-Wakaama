@@ -152,6 +152,7 @@ static void prv_requestBootstrap(lwm2m_context_t * context,
 }
 
 static uint8_t prv_handleBootstrapDiscover(lwm2m_context_t * contextP,
+                                           lwm2m_server_t *serverP,
                                            lwm2m_uri_t * uriP,
                                            uint8_t ** bufferP,
                                            size_t * lengthP)
@@ -232,7 +233,7 @@ static uint8_t prv_handleBootstrapDiscover(lwm2m_context_t * contextP,
             {
                 bool bootstrap;
                 uri.resourceId = LWM2M_SECURITY_BOOTSTRAP_ID;
-                if (object_readData(contextP, &uri, &size, &dataP) != COAP_205_CONTENT) return COAP_500_INTERNAL_SERVER_ERROR;
+                if (object_readData(contextP, serverP, &uri, &size, &dataP) != COAP_205_CONTENT) return COAP_500_INTERNAL_SERVER_ERROR;
                 if (size != 1 || lwm2m_data_decode_bool(dataP, &bootstrap) == 0)
                 {
                     lwm2m_data_free(size, dataP);
@@ -243,7 +244,7 @@ static uint8_t prv_handleBootstrapDiscover(lwm2m_context_t * contextP,
                 if (!bootstrap)
                 {
                     uri.resourceId = LWM2M_SECURITY_SHORT_SERVER_ID;
-                    if (object_readData(contextP, &uri, &size, &dataP) != COAP_205_CONTENT) return COAP_500_INTERNAL_SERVER_ERROR;
+                    if (object_readData(contextP, serverP, &uri, &size, &dataP) != COAP_205_CONTENT) return COAP_500_INTERNAL_SERVER_ERROR;
                     if (size != 1 || lwm2m_data_decode_uint(dataP, &val) == 0 )
                     {
                         lwm2m_data_free(size, dataP);
@@ -259,7 +260,7 @@ static uint8_t prv_handleBootstrapDiscover(lwm2m_context_t * contextP,
 #ifndef LWM2M_VERSION_1_0
                     length += 3 + ATTR_URI_LEN; // ";uri=\"\"\""
                     uri.resourceId = LWM2M_SECURITY_URI_ID;
-                    if (object_readData(contextP, &uri, &size, &dataP) != COAP_205_CONTENT) return COAP_500_INTERNAL_SERVER_ERROR;
+                    if (object_readData(contextP, serverP, &uri, &size, &dataP) != COAP_205_CONTENT) return COAP_500_INTERNAL_SERVER_ERROR;
                     if (size != 1 || dataP->type != LWM2M_TYPE_STRING)
                     {
                         lwm2m_data_free(size, dataP);
@@ -273,7 +274,7 @@ static uint8_t prv_handleBootstrapDiscover(lwm2m_context_t * contextP,
             else if (objectP->objID == LWM2M_SERVER_OBJECT_ID)
             {
                 uri.resourceId = LWM2M_SERVER_SHORT_ID_ID;
-                if (object_readData(contextP, &uri, &size, &dataP) != COAP_205_CONTENT) return COAP_500_INTERNAL_SERVER_ERROR;
+                if (object_readData(contextP, serverP, &uri, &size, &dataP) != COAP_205_CONTENT) return COAP_500_INTERNAL_SERVER_ERROR;
                 if (size != 1 || lwm2m_data_decode_uint(dataP, &val) == 0)
                 {
                     lwm2m_data_free(size, dataP);
@@ -379,7 +380,7 @@ static uint8_t prv_handleBootstrapDiscover(lwm2m_context_t * contextP,
             {
                 bool bootstrap;
                 uri.resourceId = LWM2M_SECURITY_BOOTSTRAP_ID;
-                if (object_readData(contextP, &uri, &size, &dataP) != COAP_205_CONTENT) goto error;
+                if (object_readData(contextP, serverP, &uri, &size, &dataP) != COAP_205_CONTENT) goto error;
                 if (size != 1 || lwm2m_data_decode_bool(dataP, &bootstrap) == 0)
                 {
                     lwm2m_data_free(size, dataP);
@@ -390,7 +391,7 @@ static uint8_t prv_handleBootstrapDiscover(lwm2m_context_t * contextP,
                 if (!bootstrap)
                 {
                     uri.resourceId = LWM2M_SECURITY_SHORT_SERVER_ID;
-                    if (object_readData(contextP, &uri, &size, &dataP) != COAP_205_CONTENT) goto error;
+                    if (object_readData(contextP, serverP, &uri, &size, &dataP) != COAP_205_CONTENT) goto error;
                     if (size != 1 || lwm2m_data_decode_uint(dataP, &val) == 0)
                     {
                         lwm2m_data_free(size, dataP);
@@ -418,7 +419,7 @@ static uint8_t prv_handleBootstrapDiscover(lwm2m_context_t * contextP,
                     (*lengthP) += res2;
 
                     uri.resourceId = LWM2M_SECURITY_URI_ID;
-                    if (object_readData(contextP, &uri, &size, &dataP) != COAP_205_CONTENT) goto error;
+                    if (object_readData(contextP, serverP, &uri, &size, &dataP) != COAP_205_CONTENT) goto error;
                     if (size != 1 || dataP->type != LWM2M_TYPE_STRING)
                     {
                         lwm2m_data_free(size, dataP);
@@ -442,7 +443,7 @@ static uint8_t prv_handleBootstrapDiscover(lwm2m_context_t * contextP,
             else if (objectP->objID == LWM2M_SERVER_OBJECT_ID)
             {
                 uri.resourceId = LWM2M_SERVER_SHORT_ID_ID;
-                if (object_readData(contextP, &uri, &size, &dataP) != COAP_205_CONTENT) goto error;
+                if (object_readData(contextP, serverP, &uri, &size, &dataP) != COAP_205_CONTENT) goto error;
                 if (size != 1 || lwm2m_data_decode_uint(dataP, &val) == 0 )
                 {
                     lwm2m_data_free(size, dataP);
@@ -475,6 +476,7 @@ error:
 
 #ifndef LWM2M_VERSION_1_0
 static uint8_t prv_handleBootstrapRead(lwm2m_context_t * contextP,
+                                       lwm2m_server_t *serverP, 
                                        lwm2m_uri_t * uriP,
                                        uint8_t acceptNum,
                                        const uint16_t * accept,
@@ -489,6 +491,7 @@ static uint8_t prv_handleBootstrapRead(lwm2m_context_t * contextP,
          || uriP->objectId == LWM2M_ACL_OBJECT_ID)
         {
             result = object_read(contextP,
+                                 serverP,
                                  uriP,
                                  accept,
                                  acceptNum,
@@ -767,7 +770,7 @@ uint8_t bootstrap_handleCommand(lwm2m_context_t * contextP,
             {
                 if (object_isInstanceNew(contextP, uriP->objectId, uriP->instanceId))
                 {
-                    result = object_create(contextP, uriP, format, message->payload, message->payload_len);
+                    result = object_create(contextP, serverP, uriP, format, message->payload, message->payload_len);
                     if (COAP_201_CREATED == result)
                     {
                         result = COAP_204_CHANGED;
@@ -775,7 +778,7 @@ uint8_t bootstrap_handleCommand(lwm2m_context_t * contextP,
                 }
                 else
                 {
-                    result = object_write(contextP, uriP, format, message->payload, message->payload_len, false);
+                    result = object_write(contextP, serverP, uriP, format, message->payload, message->payload_len, false);
                     if (uriP->objectId == LWM2M_SECURITY_OBJECT_ID
                      && result == COAP_204_CHANGED)
                     {
@@ -808,7 +811,7 @@ uint8_t bootstrap_handleCommand(lwm2m_context_t * contextP,
                         {
                             if (object_isInstanceNew(contextP, uriP->objectId, dataP[i].id))
                             {
-                                result = object_createInstance(contextP, uriP, &dataP[i]);
+                                result = object_createInstance(contextP, serverP, uriP, &dataP[i]);
                                 if (COAP_201_CREATED == result)
                                 {
                                     result = COAP_204_CHANGED;
@@ -816,7 +819,7 @@ uint8_t bootstrap_handleCommand(lwm2m_context_t * contextP,
                             }
                             else
                             {
-                                result = object_writeInstance(contextP, uriP, &dataP[i]);
+                                result = object_writeInstance(contextP, serverP, uriP, &dataP[i]);
                                 if (uriP->objectId == LWM2M_SECURITY_OBJECT_ID
                                  && result == COAP_204_CHANGED)
                                 {
@@ -874,7 +877,7 @@ uint8_t bootstrap_handleCommand(lwm2m_context_t * contextP,
                                     LWM2M_URI_RESET(&uri);
                                     uri.objectId = objectP->objID;
                                     uri.instanceId = instanceP->id;
-                                    result = object_delete(contextP, &uri);
+                                    result = object_delete(contextP, serverP, &uri);
                                     instanceP = objectP->instanceList;
                                 }
                             }
@@ -887,7 +890,7 @@ uint8_t bootstrap_handleCommand(lwm2m_context_t * contextP,
                 }
                 else
                 {
-                    result = object_delete(contextP, uriP);
+                    result = object_delete(contextP, serverP, uriP);
                     if (uriP->objectId == LWM2M_SECURITY_OBJECT_ID
                      && result == COAP_202_DELETED)
                     {
@@ -916,6 +919,7 @@ uint8_t bootstrap_handleCommand(lwm2m_context_t * contextP,
                 /* Bootstrap-Discover */
                 format = LWM2M_CONTENT_LINK;
                 result = prv_handleBootstrapDiscover(contextP,
+                                                     serverP,
                                                      uriP,
                                                      &buffer,
                                                      &length);
@@ -925,6 +929,7 @@ uint8_t bootstrap_handleCommand(lwm2m_context_t * contextP,
 #ifndef LWM2M_VERSION_1_0
                 /* Bootstrap-Read */
                 result = prv_handleBootstrapRead(contextP,
+                                                 serverP,
                                                  uriP,
                                                  message->accept_num,
                                                  message->accept,
@@ -999,7 +1004,7 @@ uint8_t bootstrap_handleDeleteAll(lwm2m_context_t * contextP,
                 else
                 {
                     uri.instanceId = instanceP->id;
-                    result = object_delete(contextP, &uri);
+                    result = object_delete(contextP, serverP, &uri);
                     instanceP = objectP->instanceList;
                 }
             }
@@ -1010,7 +1015,7 @@ uint8_t bootstrap_handleDeleteAll(lwm2m_context_t * contextP,
         }
         else
         {
-            result = object_delete(contextP, &uri);
+            result = object_delete(contextP, serverP, &uri);
             if (result == COAP_405_METHOD_NOT_ALLOWED)
             {
                 // Fake a successful deletion for static objects like the Device object.
