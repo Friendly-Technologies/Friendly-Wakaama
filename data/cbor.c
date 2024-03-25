@@ -41,7 +41,6 @@ int cbor_parse(lwm2m_uri_t * uriP,
         return err;
     }
 
-    /// Allocate memory for the data 
     data = lwm2m_data_new(dataSize + 1);
     if (data == NULL) {
         lwm2m_data_free(dataSize, data);
@@ -62,14 +61,26 @@ int cbor_parse(lwm2m_uri_t * uriP,
                 break;
             case CborSimpleType:
             case CborIntegerType:
-                err = cbor_value_get_int64_checked(&value, &data->value.asInteger);
-                if (err != CborNoError)
-                {
-                    LOG("Error: cbor_value_get_int64_checked \n");
-                    return err;
+                if (!cbor_value_is_unsigned_integer(&value)){
+                    err = cbor_value_get_int64_checked(&value, &data->value.asInteger);
+                    if (err != CborNoError)
+                    {
+                        LOG("Error: cbor_value_get_int64_checked \n");
+                        return err;
+                    }
+                    data->type = LWM2M_TYPE_INTEGER;
+                    LOG_ARG("Parsed integer value: %d\n", &data->value.asInteger);
                 }
-                data->type = LWM2M_TYPE_INTEGER;
-                LOG_ARG("Parsed integer value: %d\n", &data->value.asInteger);
+                else {
+                    err = cbor_value_get_uint64(&value, &data->value.asUnsigned);
+                    if (err != CborNoError)
+                    {
+                        LOG("Error: cbor_value_get_uint64 \n");
+                        return err;
+                    }
+                    data->type = LWM2M_TYPE_UNSIGNED_INTEGER;
+                    LOG_ARG("Parsed uint value: %d\n", &data->value.asUnsigned);
+                }
                 break;
             case CborByteStringType:
                 {
@@ -103,15 +114,11 @@ int cbor_parse(lwm2m_uri_t * uriP,
                         currPos += chunkLen;
 
                     } while (!cbor_value_at_end(&value));
+                    
+                    *currPos = '\0'; /// Null-terminate the string
 
-                    // Null-terminate the string
-                    *currPos = '\0';
-
-                    // Set the buffer and its length in the data structure
                     data->value.asBuffer.buffer = (uint8_t *)temp;
                     data->value.asBuffer.length = temPlen;
-
-                    // Set the type of the data
                     data->type = LWM2M_TYPE_STRING;
                     break;
                 }
@@ -132,30 +139,23 @@ int cbor_parse(lwm2m_uri_t * uriP,
                         return CborErrorOutOfMemory;
                     }
 
-                    // Copy chunks of the text string until all chunks are retrieved
                     char *currPos = temp;
                     do {
                         size_t chunkLen = temPlen - (currPos - temp);
                         err = cbor_value_copy_text_string(&value, currPos, &chunkLen, &value);
                         if (err != CborNoError) {
                             LOG("Error: cbor_value_copy_text_string\n");
-                            free(temp); // Clean up allocated memory
+                            free(temp); 
                             return err;
                         }
-
-                        // Move the current position pointer to the end of the copied chunk
-                        currPos += chunkLen;
+                        currPos += chunkLen;/// Move the current position pointer to the end of the copied chunk
 
                     } while (!cbor_value_at_end(&value));
 
-                    // Null-terminate the string
-                    *currPos = '\0';
+                    *currPos = '\0'; /// Null-terminate the string
 
-                    // Set the buffer and its length in the data structure
                     data->value.asBuffer.buffer = (uint8_t *)temp;
                     data->value.asBuffer.length = temPlen;
-
-                    // Set the type of the data
                     data->type = LWM2M_TYPE_STRING;
                     break;
                 }
@@ -237,7 +237,6 @@ int cbor_parse(lwm2m_uri_t * uriP,
     LOG_ARG("cbor_parse: dataP.asObjLink.objectId = %d, ", data->value.asObjLink.objectId);
     LOG_ARG("cbor_parse: dataP.asObjLink.objectInstanceId = %d, ", data->value.asObjLink.objectInstanceId);
 
-    // Return the size of the parsed data
     return dataSize;
 }
 
@@ -264,16 +263,16 @@ int cbor_serialize(bool isResourceInstance,
 
     *bufferP = NULL;
 
-    size_t bufferSize = 1024; // Start with a reasonable default size
+    size_t bufferSize = 1024; /// Start with a reasonable default size
     uint8_t *encoderBuffer = (uint8_t *)malloc(bufferSize);
     if (encoderBuffer == NULL) {
-        return 0; // Memory allocation failed
+        return 0; /// Memory allocation failed
     }
 
-    // Initialize the CborEncoder with the encoder buffer
+    /// Initialize the CborEncoder with the encoder buffer
     cbor_encoder_init(&encoder, encoderBuffer, bufferSize, 0);
 
-    // Serialize the data based on its type
+    /// Serialize the data based on its type
     switch (dataP->type) {
         case LWM2M_TYPE_UNDEFINED:
         case LWM2M_TYPE_OBJECT:
@@ -344,14 +343,12 @@ int cbor_serialize(bool isResourceInstance,
             break;
     }
 
-    // Allocate memory for the serialized buffer
     *bufferP = (uint8_t *)malloc(length);
     if (*bufferP == NULL) {
         free(encoderBuffer);
-        return 0; // Memory allocation failed
+        return 0; /// Memory allocation failed
     }
 
-    // Copying the serialized data to the output buffer
     memcpy(*bufferP, encoderBuffer, length);
     free(encoderBuffer);
 

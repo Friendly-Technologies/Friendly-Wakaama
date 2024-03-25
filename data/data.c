@@ -696,18 +696,7 @@ int lwm2m_data_parse(lwm2m_uri_t * uriP,
     case LWM2M_CONTENT_TLV_OLD:
 #endif
     case LWM2M_CONTENT_TLV:
-        res = tlv_parse(buffer, bufferLen, dataP);
-        LOG_ARG("tlv_parse: dataP.type = %d, ", (*dataP)->type);
-        LOG_ARG("tlv_parse: dataP.ID = %d, ", (*dataP)->id);
-        LOG_ARG("tlv_parse: dataP.asBoolean = %d, ", (*dataP)->value.asBoolean);
-        LOG_ARG("tlv_parse: dataP.asInteger = %d, ", (*dataP)->value.asInteger);
-        LOG_ARG("tlv_parse: dataP.asUnsigned = %lu, ", (*dataP)->value.asUnsigned);
-        LOG_ARG("tlv_parse: dataP.asFloat = %f, ", (*dataP)->value.asFloat);
-        LOG_ARG("tlv_parse: dataP.asBufferLength = %d, ", (*dataP)->value.asBuffer.length);
-        LOG_ARG("tlv_parse: dataP.asChildrenCount = %d, ", (*dataP)->value.asChildren.count);
-        LOG_ARG("tlv_parse: dataP.asObjLink.objectId = %d, ", (*dataP)->value.asObjLink.objectId);
-        LOG_ARG("tlv_parse: dataP.asObjLink.objectInstanceId = %d, ", (*dataP)->value.asObjLink.objectInstanceId);
-        return res;
+        return tlv_parse(buffer, bufferLen, dataP);
 
 #endif
 
