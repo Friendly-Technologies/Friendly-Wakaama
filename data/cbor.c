@@ -61,17 +61,7 @@ int cbor_parse(lwm2m_uri_t * uriP,
                 break;
             case CborSimpleType:
             case CborIntegerType:
-                if (!cbor_value_is_unsigned_integer(&value)){
-                    err = cbor_value_get_int64_checked(&value, &data->value.asInteger);
-                    if (err != CborNoError)
-                    {
-                        LOG("Error: cbor_value_get_int64_checked \n");
-                        return err;
-                    }
-                    data->type = LWM2M_TYPE_INTEGER;
-                    LOG_ARG("Parsed integer value: %d\n", &data->value.asInteger);
-                }
-                else {
+                if (cbor_value_is_unsigned_integer(&value)){
                     err = cbor_value_get_uint64(&value, &data->value.asUnsigned);
                     if (err != CborNoError)
                     {
@@ -80,6 +70,16 @@ int cbor_parse(lwm2m_uri_t * uriP,
                     }
                     data->type = LWM2M_TYPE_UNSIGNED_INTEGER;
                     LOG_ARG("Parsed uint value: %d\n", &data->value.asUnsigned);
+                }
+                else {
+                    err = cbor_value_get_int64_checked(&value, &data->value.asInteger);
+                    if (err != CborNoError)
+                    {
+                        LOG("Error: cbor_value_get_int64_checked \n");
+                        return err;
+                    }
+                    data->type = LWM2M_TYPE_INTEGER;
+                    LOG_ARG("Parsed integer value: %d\n", &data->value.asInteger);
                 }
                 break;
             case CborByteStringType:
@@ -170,8 +170,6 @@ int cbor_parse(lwm2m_uri_t * uriP,
                 LOG_ARG("Parsed bool value: %d\n", &data->value.asBoolean);
                 break;
             case CborDoubleType:
-            case CborFloatType:
-            case CborHalfFloatType:
                 err = cbor_value_get_double(&value, &data->value.asFloat);
                 if (err != CborNoError)
                 {
@@ -179,7 +177,27 @@ int cbor_parse(lwm2m_uri_t * uriP,
                     return err;
                 }
                 data->type = LWM2M_TYPE_FLOAT;
+                LOG_ARG("Parsed double value: %d\n", &data->value.asFloat);
+                break;
+            case CborFloatType:
+                err = cbor_value_get_float(&value, (float *)&data->value.asFloat);
+                if (err != CborNoError)
+                {
+                    LOG("Error: cbor_value_get_float \n");
+                    return err;
+                }
+                data->type = LWM2M_TYPE_FLOAT;
                 LOG_ARG("Parsed float value: %d\n", &data->value.asFloat);
+                break;
+            case CborHalfFloatType:
+                err = cbor_value_get_half_float_as_float(&value, (float *)&data->value.asFloat);
+                if (err != CborNoError)
+                {
+                    LOG("Error: cbor_value_get_half_float_as_float \n");
+                    return err;
+                }
+                data->type = LWM2M_TYPE_FLOAT;
+                LOG_ARG("Parsed half_float value: %d\n", &data->value.asFloat);
                 break;
             case CborUndefinedType:
             case CborNullType:
