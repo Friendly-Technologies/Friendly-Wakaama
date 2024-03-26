@@ -396,6 +396,14 @@ uint8_t object_write(lwm2m_context_t * contextP,
             result = COAP_406_NOT_ACCEPTABLE;
         }
     }
+    if (result == NO_ERROR
+     && dataP[0].type == LWM2M_TYPE_OBJECT_INSTANCE)
+    {
+        lwm2m_data_t *tmpDataP = dataP;
+        size = tmpDataP->value.asChildren.count;
+        dataP = tmpDataP->value.asChildren.array;
+        lwm2m_free(tmpDataP);
+    }
 #ifndef LWM2M_VERSION_1_0
     if (result == NO_ERROR
      && LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP))
