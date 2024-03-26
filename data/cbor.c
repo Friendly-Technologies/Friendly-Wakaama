@@ -40,6 +40,7 @@ int cbor_parse(lwm2m_uri_t * uriP,
         LOG_ARG("CBOR parsing failure at offset %ld: %s", value.source.ptr - buffer, cbor_error_string(err));
         return err;
     }
+    LOG_ARG("CBOR value 1: %d %d 0x%x 0x%x", value.remaining, value.extra, value.flags, value.type);
 
     data = lwm2m_data_new(dataSize + 1);
     if (data == NULL) {
@@ -52,6 +53,7 @@ int cbor_parse(lwm2m_uri_t * uriP,
     {
         CborType type = cbor_value_get_type(&value);
         LOG_ARG("CBOR type 0x%x", type);
+        LOG_ARG("CBOR value 2: %d %d 0x%x 0x%x", value.remaining, value.extra, value.flags, value.type);
  
         switch (type)
         {
@@ -119,7 +121,7 @@ int cbor_parse(lwm2m_uri_t * uriP,
 
                     data->value.asBuffer.buffer = (uint8_t *)temp;
                     data->value.asBuffer.length = temPlen;
-                    data->type = LWM2M_TYPE_STRING;
+                    data->type = LWM2M_TYPE_OPAQUE;
                     break;
                 }
             case CborTextStringType:
@@ -255,6 +257,24 @@ int cbor_parse(lwm2m_uri_t * uriP,
     LOG_ARG("cbor_parse: dataP.asObjLink.objectId = %d, ", data->value.asObjLink.objectId);
     LOG_ARG("cbor_parse: dataP.asObjLink.objectInstanceId = %d, ", data->value.asObjLink.objectInstanceId);
 
+    if (data->value.asBuffer.length > 0){
+        LOG("CBOR asBuffer --- >>>>>>>>>>>>> ");
+        for (uint16_t i = 0; i <= data->value.asBuffer.length; i++)
+        {
+            lwm2m_printf("%x", data->value.asBuffer.buffer[i]);
+        }
+        LOG("CBOR asBuffer --- >>>>>>>>>>>>> ");
+    }
+
+    if (data->value.asChildren.count > 0){
+        LOG("CBOR asChildren --- >>>>>>>>>>>>> ");
+        for (uint16_t i = 0; i <= data->value.asChildren.count; i++)
+        {
+            lwm2m_printf("%x", data->value.asChildren.array[i]);
+        }
+        LOG("CBOR asChildren --- >>>>>>>>>>>>> ");
+    }
+
     return dataSize;
 }
 
@@ -268,6 +288,15 @@ int cbor_serialize(bool isResourceInstance,
 
     int length = 0;
 
+    LOG("CBOR serialize --- <<<<<<<<<<<<<<<<<<<<<<<<<");
+
+    for (uint16_t i = 0; i <= sizeof(dataP); i++)
+    {
+        lwm2m_printf("%x", dataP[i]);
+    }
+
+    LOG("CBOR serialize --- <<<<<<<<<<<<<<<<<<<<<<<<<");
+
     LOG_ARG("cbor_serialize: dataP.type = %d, ", dataP->type);
     LOG_ARG("cbor_serialize: dataP.ID = %d, ", dataP->id);
     LOG_ARG("cbor_serialize: dataP.asBoolean = %d, ", dataP->value.asBoolean);
@@ -278,6 +307,15 @@ int cbor_serialize(bool isResourceInstance,
     LOG_ARG("cbor_serialize: dataP.asChildrenCount = %d, ", dataP->value.asChildren.count);
     LOG_ARG("cbor_serialize: dataP.asObjLink.objectId = %d, ", dataP->value.asObjLink.objectId);
     LOG_ARG("cbor_serialize: dataP.asObjLink.objectInstanceId = %d, ", dataP->value.asObjLink.objectInstanceId);
+
+    // if (dataP->value.asChildren.count > 0){
+    //     LOG("CBOR asChildren --- <<<<<<<<<<<<<<<<<<<<<<<<<");
+    //     for (uint16_t i = 0; i <= dataP->value.asChildren.count; i++)
+    //     {
+    //         lwm2m_printf("%x", dataP->value.asChildren.array[i]);
+    //     }
+    //     LOG("CBOR asChildren --- <<<<<<<<<<<<<<<<<<<<<<<<<");
+    // }
 
     *bufferP = NULL;
 
@@ -307,7 +345,6 @@ int cbor_serialize(bool isResourceInstance,
                 return err; 
             }
             length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
-
             break;
         }
         case LWM2M_TYPE_OPAQUE:
@@ -317,6 +354,16 @@ int cbor_serialize(bool isResourceInstance,
                 return err; 
             }
             length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
+            
+            if (dataP->value.asBuffer.length > 0){
+                LOG("CBOR asBuffer --- <<<<<<<<<<<<<<<<<<<<<<<<<");
+                for (uint16_t i = 0; i <= dataP->value.asBuffer.length; i++)
+                {
+                    lwm2m_printf("%x", dataP->value.asBuffer.buffer[i]);
+                }
+                LOG("CBOR asBuffer --- <<<<<<<<<<<<<<<<<<<<<<<<<");
+            }
+
             break;
         case LWM2M_TYPE_STRING:
         case LWM2M_TYPE_CORE_LINK:
@@ -326,6 +373,14 @@ int cbor_serialize(bool isResourceInstance,
                 return err; 
             }
             length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
+            if (dataP->value.asBuffer.length > 0){
+                LOG("CBOR asBuffer --- <<<<<<<<<<<<<<<<<<<<<<<<<");
+                for (uint16_t i = 0; i <= dataP->value.asBuffer.length; i++)
+                {
+                    lwm2m_printf("%x", dataP->value.asBuffer.buffer[i]);
+                }
+                LOG("CBOR asBuffer --- <<<<<<<<<<<<<<<<<<<<<<<<<");
+            }
             break;
         case LWM2M_TYPE_INTEGER:
             err = cbor_encode_int(&encoder,dataP->value.asInteger);
