@@ -11,40 +11,44 @@ int cbor_parse(lwm2m_uri_t * uriP,
     CborError err;
     size_t dataSize = 0;
     lwm2m_data_t *data = NULL;
+    *dataP = NULL;
 
     LOG_ARG("bufferLen: %d", bufferLen);
-
-    *dataP = NULL;
+    LOG_URI(uriP);
+    if (uriP == NULL){
+        return -1; // uriP allocation failed
+    }
     
     err = cbor_parser_init(buffer, bufferLen, 0, &parser, &value);    
     if (err != CborNoError)
     {
         LOG_ARG("cbor_parser_init FAILED with error %d", err);
-        return err;
+        return -1;
     }
 
     err = cbor_value_validate(&value, CborValidateStrictMode);
     if (err != CborNoError)
     {
         LOG_ARG("CBOR parsing failure at offset %ld: %s", value.source.ptr - buffer, cbor_error_string(err));
-        return err;
+        return -1;
     }
 
     data = lwm2m_data_new(dataSize + 1);
     if (data == NULL) {
-        lwm2m_data_free(dataSize, data);
-        return 0; // Memory allocation failed
+        lwm2m_free(data);
+        LOG("lwm2m_data_new FAILED");
+        return -1; 
     }
     data->id = uriP->resourceId; // setting data->id to the resource ID
 
     CborType type = cbor_value_get_type(&value);
-
     switch (type)
     {
         case CborArrayType:
         case CborMapType:
         case CborTagType:
             LOG_ARG("Cbor Yet Unsupported Type 0x%x\n", CborTagType);
+            return -1; // dataSize == 0, it's an error
             break;
         case CborSimpleType:
         case CborIntegerType:
@@ -52,54 +56,43 @@ int cbor_parse(lwm2m_uri_t * uriP,
                 err = cbor_value_get_uint64(&value, &data->value.asUnsigned);
                 if (err != CborNoError)
                 {
-                    LOG("Error: cbor_value_get_uint64 \n");
-                    return err;
+                    LOG_ARG("cbor_value_get_uint64 FAILED with error %d", err);
+                    return -1;
                 }
                 data->type = LWM2M_TYPE_UNSIGNED_INTEGER;
-                LOG_ARG("Parsed uint value: %d\n", &data->value.asUnsigned);
             }
             else {
                 err = cbor_value_get_int64_checked(&value, &data->value.asInteger);
                 if (err != CborNoError)
                 {
-                    LOG("Error: cbor_value_get_int64_checked \n");
-                    return err;
+                    LOG_ARG("cbor_value_get_int64_checked FAILED with error %d", err);
+                    return -1;
                 }
                 data->type = LWM2M_TYPE_INTEGER;
-                LOG_ARG("Parsed integer value: %d\n", &data->value.asInteger);
             }
             break;
         case CborByteStringType:
             {
                 uint8_t *temp = NULL;
                 size_t temPlen = 0;
-
+              
                 err = cbor_value_calculate_string_length(&value, &temPlen);
                 if (err != CborNoError) {
                     LOG_ARG("Error%d: cbor_value_calculate_string_length\n", err);
-                    return err;
+                    return -1;
                 }
 
-                temp = (uint8_t *)malloc(temPlen + 1); // +1 for null terminator
+                temp = (uint8_t *)lwm2m_malloc(temPlen);
                 if (temp == NULL) {
-                    LOG("Error: Memory allocation failed\n");
-                    return CborErrorOutOfMemory;
+                    LOG("Error: lwm2m_malloc failed\n");
+                    return -1;
                 }
 
-                uint8_t *currPos = temp;
-                do {
-                    size_t chunkLen = temPlen - (currPos - temp);
-                    err = cbor_value_copy_byte_string(&value, currPos, &chunkLen, &value);
-                    if (err != CborNoError) {
-                        LOG("Error: cbor_value_copy_text_string\n");
-                        free(temp); // Clean up allocated memory
-                        return err;
-                    }
-                    currPos += chunkLen;
-
-                } while (!cbor_value_at_end(&value));
-                
-                *currPos = '\0'; /// Null-terminate the string
+                err = cbor_value_dup_byte_string(&value, &temp, &temPlen, &value);
+                if (err!= CborNoError){
+                    LOG_ARG("Error%d: cbor_value_dup_byte_string\n", err);
+                    return -1;     
+                }
 
                 data->value.asBuffer.buffer = (uint8_t *)temp;
                 data->value.asBuffer.length = temPlen;
@@ -114,28 +107,20 @@ int cbor_parse(lwm2m_uri_t * uriP,
                 err = cbor_value_calculate_string_length(&value, &temPlen);
                 if (err != CborNoError) {
                     LOG_ARG("Error%d: cbor_value_calculate_string_length\n", err);
-                    return err;
+                    return -1;
                 }
 
-                temp = (char *)malloc(temPlen + 1); // +1 for null terminator
+                temp = (char *)lwm2m_malloc(temPlen);
                 if (temp == NULL) {
                     LOG("Error: Memory allocation failed\n");
-                    return CborErrorOutOfMemory;
+                    return -1;
                 }
 
-                char *currPos = temp;
-                do {
-                    size_t chunkLen = temPlen - (currPos - temp);
-                    err = cbor_value_copy_text_string(&value, currPos, &chunkLen, &value);
-                    if (err != CborNoError) {
-                        LOG("Error: cbor_value_copy_text_string\n");
-                        free(temp); 
-                        return err;
-                    }
-                    currPos += chunkLen;/// Move the current position pointer to the end of the copied chunk
-
-                } while (!cbor_value_at_end(&value));
-                *currPos = '\0'; /// Null-terminate the string
+                err = cbor_value_dup_text_string(&value, &temp, &temPlen, &value);
+                if (err!= CborNoError){
+                    LOG_ARG("Error%d: cbor_value_dup_text_string\n", err);
+                    return -1;
+                }
 
                 data->value.asBuffer.buffer = (uint8_t *)temp;
                 data->value.asBuffer.length = temPlen;
@@ -146,8 +131,8 @@ int cbor_parse(lwm2m_uri_t * uriP,
             err = cbor_value_get_boolean(&value, &data->value.asBoolean);
             if (err != CborNoError)
             {
-                LOG("Error: cbor_value_get_boolean \n");
-                return err;
+                LOG_ARG("cbor_value_get_boolean FAILED with error %d", err);
+                return -1;
             }
             data->type = LWM2M_TYPE_BOOLEAN;
             break;
@@ -155,8 +140,8 @@ int cbor_parse(lwm2m_uri_t * uriP,
             err = cbor_value_get_double(&value, &data->value.asFloat);
             if (err != CborNoError)
             {
-                LOG("Error: cbor_value_get_double \n");
-                return err;
+                LOG_ARG("cbor_value_get_double FAILED with error %d", err);
+                return -1;
             }
             data->type = LWM2M_TYPE_FLOAT;
             break;
@@ -164,8 +149,8 @@ int cbor_parse(lwm2m_uri_t * uriP,
             err = cbor_value_get_float(&value, (float *)&data->value.asFloat);
             if (err != CborNoError)
             {
-                LOG("Error: cbor_value_get_float \n");
-                return err;
+                LOG_ARG("cbor_value_get_float FAILED with error %d", err);
+                return -1;
             }
             data->type = LWM2M_TYPE_FLOAT;
             break;
@@ -173,8 +158,8 @@ int cbor_parse(lwm2m_uri_t * uriP,
             err = cbor_value_get_half_float_as_float(&value, (float *)&data->value.asFloat);
             if (err != CborNoError)
             {
-                LOG("Error: cbor_value_get_half_float_as_float \n");
-                return err;
+                LOG_ARG("cbor_value_get_half_float_as_float FAILED with error %d", err);
+                return -1;
             }
             data->type = LWM2M_TYPE_FLOAT;
             break;
@@ -182,14 +167,25 @@ int cbor_parse(lwm2m_uri_t * uriP,
         case CborNullType:
         case CborInvalidType:
             LOG_ARG("CborInvalidType 0x%x\n", CborInvalidType);
+            return -1; 
+            break;
+        default:
+            return -1; 
             break;
     }///!switch-case
 
-    dataSize++; /// temporary we set dataSize == 1
+    if (data == NULL) {
+        lwm2m_free(data);
+        LOG("data is empty ");
+        return 0; 
+    }
+    dataSize++; /// if all is OK, temporary we set dataSize == 1
     *dataP = data;
     
     return dataSize;
 }
+
+#define DEFAULT_BUFF_SIZE (1024UL)
 
 int cbor_serialize(bool isResourceInstance, 
                    int size,
@@ -200,10 +196,11 @@ int cbor_serialize(bool isResourceInstance,
     CborError err;
     int length = 0;
     *bufferP = NULL;
-    size_t bufferSize = 1024; /// Start with a reasonable default size
-    uint8_t *encoderBuffer = (uint8_t *)malloc(bufferSize);
+    size_t bufferSize = DEFAULT_BUFF_SIZE; /// TODO Add the ability to calculate the required memory for the cbor buffer
+    uint8_t *encoderBuffer = (uint8_t *)lwm2m_malloc(bufferSize);
     if (encoderBuffer == NULL) {
-        return 0; /// Memory allocation failed
+        LOG("lwm2m_malloc FAILED");
+        return -1;
     }
 
     cbor_encoder_init(&encoder, encoderBuffer, bufferSize, 0);
@@ -213,6 +210,7 @@ int cbor_serialize(bool isResourceInstance,
         case LWM2M_TYPE_OBJECT:
         case LWM2M_TYPE_OBJECT_INSTANCE:
         case LWM2M_TYPE_MULTIPLE_RESOURCE:
+            return -1;
             break;
         case LWM2M_TYPE_OBJECT_LINK:
         {
@@ -220,8 +218,9 @@ int cbor_serialize(bool isResourceInstance,
             snprintf(buffer, sizeof(buffer), "%u:%u", dataP->value.asObjLink.objectId, dataP->value.asObjLink.objectInstanceId);
             err = cbor_encode_text_string(&encoder, buffer, strlen(buffer));
             if (err != CborNoError) {
-                free(encoderBuffer);
-                return err; 
+                lwm2m_free(encoderBuffer);
+                LOG_ARG("cbor_encode_text_string FAILED with error %d", err);
+                return -1; 
             }
             length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
             break;
@@ -229,8 +228,9 @@ int cbor_serialize(bool isResourceInstance,
         case LWM2M_TYPE_OPAQUE:
             err = cbor_encode_byte_string(&encoder, dataP->value.asBuffer.buffer, dataP->value.asBuffer.length);
             if (err != CborNoError) {
-                free(encoderBuffer);
-                return err; 
+                lwm2m_free(encoderBuffer);
+                LOG_ARG("cbor_encode_byte_string FAILED with error %d", err);
+                return -1; 
             }
             length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
             break;
@@ -238,53 +238,62 @@ int cbor_serialize(bool isResourceInstance,
         case LWM2M_TYPE_CORE_LINK:
             err = cbor_encode_text_string(&encoder,(char *) dataP->value.asBuffer.buffer, dataP->value.asBuffer.length);
             if (err != CborNoError) {
-                free(encoderBuffer);
-                return err; 
+                lwm2m_free(encoderBuffer);
+                LOG_ARG("cbor_encode_text_string FAILED with error %d", err);
+                return -1; 
             }
             length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
             break;
         case LWM2M_TYPE_INTEGER:
             err = cbor_encode_int(&encoder,dataP->value.asInteger);
             if (err != CborNoError) {
-                free(encoderBuffer);
-                return err; 
+                lwm2m_free(encoderBuffer);
+                LOG_ARG("cbor_encode_int FAILED with error %d", err);
+                return -1; 
             }
             length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
             break;
         case LWM2M_TYPE_UNSIGNED_INTEGER:
             err = cbor_encode_uint(&encoder, dataP->value.asUnsigned);
             if (err != CborNoError) {
-                free(encoderBuffer);
-                return err; 
+                lwm2m_free(encoderBuffer);
+                LOG_ARG("cbor_encode_int FAILED with error %d", err);
+                return -1; 
             }
             length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
             break;
         case LWM2M_TYPE_FLOAT:
             err = cbor_encode_double(&encoder, dataP->value.asFloat);
             if (err != CborNoError) {
-                free(encoderBuffer);
-                return err; 
+                lwm2m_free(encoderBuffer);
+                LOG_ARG("cbor_encode_double FAILED with error %d", err);
+                return -1; 
             }
             length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
             break;
         case LWM2M_TYPE_BOOLEAN:
             err = cbor_encode_boolean(&encoder, dataP->value.asBoolean);
             if (err != CborNoError) {
-                free(encoderBuffer);
-                return err; 
+                lwm2m_free(encoderBuffer);
+                LOG_ARG("cbor_encode_boolean FAILED with error %d", err);
+                return -1; 
             }
             length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
             break;
+        default:
+            return -1;
+            break;
     }
 
-    *bufferP = (uint8_t *)malloc(length);
+    *bufferP = (uint8_t *)lwm2m_malloc(length);
     if (*bufferP == NULL) {
-        free(encoderBuffer);
-        return 0; /// Memory allocation failed
+        lwm2m_free(encoderBuffer);
+        LOG("bufferP is empty");
+        return 0; 
     }
 
     memcpy(*bufferP, encoderBuffer, length);
-    free(encoderBuffer);
+    lwm2m_free(encoderBuffer);
 
     LOG_ARG("returning %u", length);
     return length;

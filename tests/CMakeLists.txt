@@ -20,7 +20,7 @@ add_executable(
 )
 
 target_link_libraries(lwm2munittests cunit)
-target_compile_definitions(lwm2munittests PRIVATE LWM2M_CLIENT_MODE LWM2M_SUPPORT_TLV LWM2M_SUPPORT_JSON LWM2M_SUPPORT_CBOR)
+target_compile_definitions(lwm2munittests PRIVATE LWM2M_CLIENT_MODE LWM2M_SUPPORT_TLV LWM2M_SUPPORT_JSON)
 
 # Our tests are designed for POSIX systems
 target_compile_definitions(lwm2munittests PRIVATE _POSIX_C_SOURCE=200809)

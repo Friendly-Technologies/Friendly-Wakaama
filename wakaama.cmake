@@ -29,6 +29,14 @@ function(target_sources_coap target)
     target_include_directories(${target} PRIVATE ${WAKAAMA_TOP_LEVEL_DIRECTORY}/coap)
 endfunction()
 
+# Add tinycbor source files to an existing target.
+#
+# Separated from target_sources_wakaama() for testability reasons.
+function(target_sources_tinycbor target)
+    include(${WAKAAMA_TINYCBOR_DIRECTORY}/tinycbor.cmake)
+    target_sources_tinycbor(${target})   
+endfunction()
+
 # Add Wakaama source files to an existing target.
 #
 # The following definitions are needed and default values get applied if not set:
@@ -51,10 +59,6 @@ function(target_sources_wakaama target)
                 ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/uri.c
                 ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/utils.c
     )
-    # project(tinycborModule)
-    # ADD_LIBRARY(tinycborModule)
-    # target_include_directories(${target} PRIVATE /home/anr/tinycbor/src/)
-    # target_link_libraries(${target} /home/anr/tinycbor/lib/libtinycbor.a)
 
     target_include_directories(${target} PRIVATE ${WAKAAMA_TOP_LEVEL_DIRECTORY}/include)
 
@@ -91,11 +95,6 @@ function(target_sources_wakaama target)
     target_sources_coap(${target})
     target_sources_data(${target})
     target_sources_tinycbor(${target})
-endfunction()
-
-function(target_sources_tinycbor target)
-    include(${WAKAAMA_TINYCBOR_DIRECTORY}/tinycbor.cmake)
-    target_sources_tinycbor(${target})   
 endfunction()
 
 # Add shared source files to an existing target.
