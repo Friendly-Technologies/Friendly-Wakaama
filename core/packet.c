@@ -472,6 +472,7 @@ static int prv_send_get_next_block2(lwm2m_context_t * contextP,
     return prv_send_get_block2(contextP, sessionH, blockDataHead, currentMID, block2_num + 1, block2_size);
 }
 
+#ifdef LWM2M_CLIENT_MODE
 static lwm2m_server_t * prv_findServer(lwm2m_context_t * contextP, void * sessionH)
 {
     lwm2m_server_t * targetP;
@@ -485,6 +486,7 @@ static lwm2m_server_t * prv_findServer(lwm2m_context_t * contextP, void * sessio
 
     return targetP;
 }
+#endif
 
 /* This function is an adaptation of function coap_receive() from Erbium's er-coap-13-engine.c.
  * Erbium is Copyright (c) 2013, Institute for Pervasive Computing, ETH Zurich
