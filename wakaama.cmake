@@ -1,6 +1,7 @@
 set(WAKAAMA_TOP_LEVEL_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}")
 set(WAKAAMA_EXAMPLE_DIRECTORY "${WAKAAMA_TOP_LEVEL_DIRECTORY}/examples")
 set(WAKAAMA_EXAMPLE_SHARED_DIRECTORY "${WAKAAMA_EXAMPLE_DIRECTORY}/shared")
+set(WAKAAMA_TINYCBOR_DIRECTORY "${WAKAAMA_TOP_LEVEL_DIRECTORY}/libs")
 
 # Add data format source files to an existing target.
 #
@@ -52,8 +53,8 @@ function(target_sources_wakaama target)
     )
     # project(tinycborModule)
     # ADD_LIBRARY(tinycborModule)
-    target_include_directories(${target} PRIVATE /home/anr/tinycbor/src/)
-    target_link_libraries(${target} /home/anr/tinycbor/lib/libtinycbor.a)
+    # target_include_directories(${target} PRIVATE /home/anr/tinycbor/src/)
+    # target_link_libraries(${target} /home/anr/tinycbor/lib/libtinycbor.a)
 
     target_include_directories(${target} PRIVATE ${WAKAAMA_TOP_LEVEL_DIRECTORY}/include)
 
@@ -89,6 +90,12 @@ function(target_sources_wakaama target)
 
     target_sources_coap(${target})
     target_sources_data(${target})
+    target_sources_tinycbor(${target})
+endfunction()
+
+function(target_sources_tinycbor target)
+    include(${WAKAAMA_TINYCBOR_DIRECTORY}/tinycbor.cmake)
+    target_sources_tinycbor(${target})   
 endfunction()
 
 # Add shared source files to an existing target.
