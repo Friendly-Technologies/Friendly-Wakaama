@@ -16,7 +16,7 @@ int cbor_parse(lwm2m_uri_t * uriP,
     LOG_ARG("bufferLen: %d", bufferLen);
     LOG_URI(uriP);
     if (uriP == NULL){
-        return -1; // uriP allocation failed
+        return -1;
     }
     
     err = cbor_parser_init(buffer, bufferLen, 0, &parser, &value);    
@@ -39,7 +39,12 @@ int cbor_parse(lwm2m_uri_t * uriP,
         LOG("lwm2m_data_new FAILED");
         return -1; 
     }
-    data->id = uriP->resourceId; // setting data->id to the resource ID
+    if (!LWM2M_URI_IS_SET_RESOURCE(uriP)){
+        lwm2m_free(data);
+        LOG("lwm2m_data_new FAILED");
+        return -1; 
+    }
+    data->id = uriP->resourceId;
 
     CborType type = cbor_value_get_type(&value);
     switch (type)
@@ -48,7 +53,7 @@ int cbor_parse(lwm2m_uri_t * uriP,
         case CborMapType:
         case CborTagType:
             LOG_ARG("Cbor Yet Unsupported Type 0x%x\n", CborTagType);
-            return -1; // dataSize == 0, it's an error
+            return -1; 
             break;
         case CborSimpleType:
         case CborIntegerType:
@@ -57,6 +62,7 @@ int cbor_parse(lwm2m_uri_t * uriP,
                 if (err != CborNoError)
                 {
                     LOG_ARG("cbor_value_get_uint64 FAILED with error %d", err);
+                    lwm2m_free(data);
                     return -1;
                 }
                 data->type = LWM2M_TYPE_UNSIGNED_INTEGER;
@@ -66,6 +72,7 @@ int cbor_parse(lwm2m_uri_t * uriP,
                 if (err != CborNoError)
                 {
                     LOG_ARG("cbor_value_get_int64_checked FAILED with error %d", err);
+                    lwm2m_free(data);
                     return -1;
                 }
                 data->type = LWM2M_TYPE_INTEGER;
@@ -79,18 +86,21 @@ int cbor_parse(lwm2m_uri_t * uriP,
                 err = cbor_value_calculate_string_length(&value, &temPlen);
                 if (err != CborNoError) {
                     LOG_ARG("Error%d: cbor_value_calculate_string_length\n", err);
+                    lwm2m_free(data);
                     return -1;
                 }
 
                 temp = (uint8_t *)lwm2m_malloc(temPlen);
                 if (temp == NULL) {
                     LOG("Error: lwm2m_malloc failed\n");
+                    lwm2m_free(data);
                     return -1;
                 }
 
                 err = cbor_value_dup_byte_string(&value, &temp, &temPlen, &value);
                 if (err!= CborNoError){
                     LOG_ARG("Error%d: cbor_value_dup_byte_string\n", err);
+                    lwm2m_free(data);
                     return -1;     
                 }
 
@@ -107,18 +117,21 @@ int cbor_parse(lwm2m_uri_t * uriP,
                 err = cbor_value_calculate_string_length(&value, &temPlen);
                 if (err != CborNoError) {
                     LOG_ARG("Error%d: cbor_value_calculate_string_length\n", err);
+                    lwm2m_free(data);
                     return -1;
                 }
 
                 temp = (char *)lwm2m_malloc(temPlen);
                 if (temp == NULL) {
                     LOG("Error: Memory allocation failed\n");
+                    lwm2m_free(data);
                     return -1;
                 }
 
                 err = cbor_value_dup_text_string(&value, &temp, &temPlen, &value);
                 if (err!= CborNoError){
                     LOG_ARG("Error%d: cbor_value_dup_text_string\n", err);
+                    lwm2m_free(data);
                     return -1;
                 }
 
@@ -132,6 +145,7 @@ int cbor_parse(lwm2m_uri_t * uriP,
             if (err != CborNoError)
             {
                 LOG_ARG("cbor_value_get_boolean FAILED with error %d", err);
+                lwm2m_free(data);
                 return -1;
             }
             data->type = LWM2M_TYPE_BOOLEAN;
@@ -141,32 +155,44 @@ int cbor_parse(lwm2m_uri_t * uriP,
             if (err != CborNoError)
             {
                 LOG_ARG("cbor_value_get_double FAILED with error %d", err);
+                lwm2m_free(data);
                 return -1;
             }
             data->type = LWM2M_TYPE_FLOAT;
             break;
         case CborFloatType:
-            err = cbor_value_get_float(&value, (float *)&data->value.asFloat);
-            if (err != CborNoError)
             {
-                LOG_ARG("cbor_value_get_float FAILED with error %d", err);
-                return -1;
+                float tempFloatValue;
+                err = cbor_value_get_float(&value, &tempFloatValue);
+                if (err != CborNoError)
+                {
+                    LOG_ARG("cbor_value_get_float FAILED with error %d", err);
+                    lwm2m_free(data);
+                    return -1;
+                }
+                data->value.asFloat = (double)tempFloatValue;
+                data->type = LWM2M_TYPE_FLOAT;
+                break;
             }
-            data->type = LWM2M_TYPE_FLOAT;
-            break;
         case CborHalfFloatType:
-            err = cbor_value_get_half_float_as_float(&value, (float *)&data->value.asFloat);
-            if (err != CborNoError)
             {
-                LOG_ARG("cbor_value_get_half_float_as_float FAILED with error %d", err);
-                return -1;
+                float tempFloatValue;
+                err = cbor_value_get_half_float_as_float(&value, &tempFloatValue);
+                if (err != CborNoError)
+                {
+                    LOG_ARG("cbor_value_get_half_float_as_float FAILED with error %d", err);
+                    lwm2m_free(data);
+                    return -1;
+                }
+                data->value.asFloat = (double)tempFloatValue;
+                data->type = LWM2M_TYPE_FLOAT;
+                break;
             }
-            data->type = LWM2M_TYPE_FLOAT;
-            break;
         case CborUndefinedType:
         case CborNullType:
         case CborInvalidType:
             LOG_ARG("CborInvalidType 0x%x\n", CborInvalidType);
+            lwm2m_free(data);
             return -1; 
             break;
         default:
@@ -281,6 +307,7 @@ int cbor_serialize(bool isResourceInstance,
             length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
             break;
         default:
+            lwm2m_free(encoderBuffer);
             return -1;
             break;
     }
@@ -289,6 +316,11 @@ int cbor_serialize(bool isResourceInstance,
     if (*bufferP == NULL) {
         lwm2m_free(encoderBuffer);
         LOG("bufferP is empty");
+        return 0; 
+    }
+
+    if (encoderBuffer == NULL) {
+        LOG("encoderBuffer is empty");
         return 0; 
     }
 
