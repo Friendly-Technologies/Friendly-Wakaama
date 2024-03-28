@@ -41,7 +41,7 @@ int cbor_parse(lwm2m_uri_t * uriP,
     }
     if (!LWM2M_URI_IS_SET_RESOURCE(uriP)){
         lwm2m_free(data);
-        LOG("lwm2m_data_new FAILED");
+        LOG("LWM2M_URI_IS_SET_RESOURCE FAILED");
         return -1; 
     }
     data->id = uriP->resourceId;
