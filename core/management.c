@@ -327,8 +327,7 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
                     lwm2m_update_registration(contextP, 0, false, true);
                 }
             }
-            else if (!IS_OPTION(message, COAP_OPTION_CONTENT_TYPE)
-                  || format == LWM2M_CONTENT_TEXT)
+            else if (!IS_OPTION(message, COAP_OPTION_CONTENT_TYPE))
             {
                 if (!LWM2M_URI_IS_SET_RESOURCE(uriP)
 #ifndef LWM2M_VERSION_1_0
