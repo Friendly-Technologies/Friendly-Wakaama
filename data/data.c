@@ -696,9 +696,10 @@ int lwm2m_data_parse(lwm2m_uri_t * uriP,
 #endif
     case LWM2M_CONTENT_TLV: {
         int size = tlv_parse(buffer, bufferLen, dataP);
-        if (size == 1 && uriP != NULL && LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP))
+        LOG_ARG("!!!!size: %d", size);
+        if (size == 1 && uriP != NULL && LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP) && (*dataP)->type == LWM2M_TYPE_MULTIPLE_RESOURCE)
         {
-            if((*dataP)->type != LWM2M_TYPE_MULTIPLE_RESOURCE || (*dataP)->value.asChildren.count != 1) return -1;
+            if((*dataP)->value.asChildren.count != 1) return -1;
             lwm2m_data_t *tmpDataP = (*dataP);
             size = tmpDataP->value.asChildren.count;
             *dataP = tmpDataP->value.asChildren.array;
