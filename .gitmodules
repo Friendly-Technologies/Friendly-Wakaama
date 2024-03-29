@@ -1,3 +1,6 @@
 [submodule "platforms/Linux/tinydtls"]
 	path = examples/shared/tinydtls
 	url = https://github.com/eclipse/tinydtls.git
+[submodule "libs/tinycbor"]
+	path = libs/tinycbor
+	url = git@github.com:intel/tinycbor.git

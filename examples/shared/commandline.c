@@ -328,6 +328,24 @@ void output_data(FILE *stream, block_info_t *block_info, lwm2m_media_type_t form
         output_tlv(stream, data, dataLength, indent);
         break;
 
+     case LWM2M_CONTENT_CBOR:
+        fprintf(stream, "application/vnd.oma.lwm2m+cbor:\r\n");
+        print_indent(stream, indent);
+        for (size_t i = 0; i < dataLength; i++) {
+            fprintf(stream, "%c", data[i]);
+        }
+        fprintf(stream, "\n");
+        break;
+
+    case LWM2M_CONTENT_SENML_CBOR:
+        fprintf(stream, "application/senml+cbor:\r\n");
+        print_indent(stream, indent);
+        for (size_t i = 0; i < dataLength; i++) {
+            fprintf(stream, "%c", data[i]);
+        }
+        fprintf(stream, "\n");
+        break;
+
     case LWM2M_CONTENT_JSON:
         fprintf(stream, "application/vnd.oma.lwm2m+json:\r\n");
         print_indent(stream, indent);

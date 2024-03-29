@@ -702,6 +702,12 @@ lwm2m_media_type_t utils_convertMediaType(coap_content_type_t type)
         result = LWM2M_CONTENT_JSON_OLD;
         break;
 #endif
+    case LWM2M_CONTENT_CBOR:
+        result = LWM2M_CONTENT_CBOR;
+        break;
+    case LWM2M_CONTENT_SENML_CBOR:
+        result = LWM2M_CONTENT_SENML_CBOR;
+        break;
     case LWM2M_CONTENT_JSON:
         result = LWM2M_CONTENT_JSON;
         break;
@@ -779,6 +785,19 @@ uint8_t utils_getResponseFormat(uint8_t accept_num,
 #endif
             case LWM2M_CONTENT_TLV:
                 *format = LWM2M_CONTENT_TLV;
+                found = true;
+                break;
+#endif
+
+#ifdef LWM2M_SUPPORT_CBOR
+            case LWM2M_CONTENT_CBOR:
+                *format = LWM2M_CONTENT_CBOR;
+                found = true;
+                break;
+#endif
+#ifdef LWM2M_SUPPORT_SENML_CBOR
+            case LWM2M_CONTENT_SENML_CBOR:
+                *format = LWM2M_CONTENT_SENML_CBOR;
                 found = true;
                 break;
 #endif
