@@ -117,9 +117,11 @@
 ((M) == LWM2M_CONTENT_LINK ? "LWM2M_CONTENT_LINK" :              \
 ((M) == LWM2M_CONTENT_OPAQUE ? "LWM2M_CONTENT_OPAQUE" :          \
 ((M) == LWM2M_CONTENT_TLV ? "LWM2M_CONTENT_TLV" :                \
+((M) == LWM2M_CONTENT_CBOR ? "LWM2M_CONTENT_CBOR" :              \
+((M) == LWM2M_CONTENT_SENML_CBOR ? "LWM2M_CONTENT_SENML_CBOR" :  \
 ((M) == LWM2M_CONTENT_JSON ? "LWM2M_CONTENT_JSON" :              \
 ((M) == LWM2M_CONTENT_SENML_JSON ? "LWM2M_CONTENT_SENML_JSON" :  \
-"Unknown"))))))
+"Unknown"))))))))
 #define STR_STATE(S)                                \
 ((S) == STATE_INITIAL ? "STATE_INITIAL" :      \
 ((S) == STATE_BOOTSTRAP_REQUIRED ? "STATE_BOOTSTRAP_REQUIRED" :      \
@@ -369,6 +371,12 @@ lwm2m_status_t bootstrap_getStatus(lwm2m_context_t * contextP);
 // defined in tlv.c
 int tlv_parse(const uint8_t * buffer, size_t bufferLen, lwm2m_data_t ** dataP);
 int tlv_serialize(bool isResourceInstance, int size, lwm2m_data_t * dataP, uint8_t ** bufferP);
+#endif
+
+#ifdef LWM2M_SUPPORT_CBOR
+// defined in cbor.c
+int cbor_parse(lwm2m_uri_t * uriP, const uint8_t * buffer, size_t bufferLen, lwm2m_data_t ** dataP);
+int cbor_serialize(bool isResourceInstance, int size, lwm2m_data_t * dataP, uint8_t ** bufferP);
 #endif
 
 // defined in json.c

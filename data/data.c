@@ -709,6 +709,12 @@ int lwm2m_data_parse(lwm2m_uri_t * uriP,
     }
 #endif
 
+#ifdef LWM2M_SUPPORT_CBOR
+    case LWM2M_CONTENT_CBOR:
+        LOG("CBOR cbor_parse ");
+        return cbor_parse(uriP, buffer, bufferLen, dataP);
+#endif
+
 #ifdef LWM2M_SUPPORT_JSON
 #ifdef LWM2M_OLD_CONTENT_FORMAT_SUPPORT
     case LWM2M_CONTENT_JSON_OLD:
@@ -735,7 +741,6 @@ int lwm2m_data_serialize(lwm2m_uri_t * uriP,
 {
     LOG_URI(uriP);
     LOG_ARG("size: %d, formatP: %s", size, STR_MEDIA_TYPE(*formatP));
-
     // Check format
     if (*formatP == LWM2M_CONTENT_TEXT
      || *formatP == LWM2M_CONTENT_OPAQUE)
@@ -809,6 +814,12 @@ int lwm2m_data_serialize(lwm2m_uri_t * uriP,
         }
         return tlv_serialize(isResourceInstance, size, dataP, bufferP);
     }
+#endif
+
+#ifdef LWM2M_SUPPORT_CBOR
+    case LWM2M_CONTENT_CBOR:
+        LOG("CBOR cbor_serialize ");
+        return cbor_serialize(true, size, dataP, bufferP);
 #endif
 
 #ifdef LWM2M_CLIENT_MODE
