@@ -68,11 +68,12 @@ static int prv_getMandatoryInfo(lwm2m_context_t *contextP,
     int size;
     int64_t value;
 
-    size = 2;
+    size = 3;
     dataP = lwm2m_data_new(size);
     if (dataP == NULL) return -1;
     dataP[0].id = LWM2M_SERVER_LIFETIME_ID;
     dataP[1].id = LWM2M_SERVER_BINDING_ID;
+    dataP[3].id = LWM2M_SERVER_MUTE_SEND_ID;
 
     if (objectP->readFunc(contextP, NULL, instanceID, &size, &dataP, objectP) != COAP_205_CONTENT)
     {
@@ -95,6 +96,15 @@ static int prv_getMandatoryInfo(lwm2m_context_t *contextP,
     else
     {
         targetP->binding = BINDING_UNKNOWN;
+    }
+
+    if (dataP[2].type == LWM2M_TYPE_BOOLEAN)
+    {
+        targetP->muteSend = dataP[2].value.asBoolean;
+    }
+    else
+    {
+        targetP->muteSend = true;
     }
 
     lwm2m_data_free(size, dataP);

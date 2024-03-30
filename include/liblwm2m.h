@@ -571,6 +571,7 @@ struct _lwm2m_server_
     time_t                  lifetime;     // lifetime of the registration in sec or 0 if default value (86400 sec), also used as hold off time for bootstrap servers
     time_t                  registration; // date of the last registration in sec or end of client hold off time for bootstrap servers or end of hold off time for registration holds.
     lwm2m_binding_t         binding;      // client connection mode with this server
+    bool                    muteSend;     // true if the server is in mute mode
     void *                  sessionH;
     lwm2m_status_t          status;
     char *                  location;
@@ -834,9 +835,12 @@ void lwm2m_resource_value_changed(lwm2m_context_t * contextP, lwm2m_uri_t * uriP
 // Should be called when changes are made to the server life time.
 void lwm2m_update_server_lifetime(lwm2m_context_t * contextP, uint16_t serverId, time_t lifetime);
 
+#ifdef LWM2M_SUPPORT_SENML_JSON
 // The "Send" operation is used by the LwM2M Client to send data to the LwM2M Server without explicit request by that Server
 int lwm2m_send_operation(lwm2m_context_t * contextP, lwm2m_uri_t * uriP);
-#endif
+void lwm2m_update_server_mute(lwm2m_context_t * contextP, uint16_t serverId, bool muteSend);
+#endif // LWM2M_SUPPORT_SENML_JSON
+#endif // LWM2M_CLIENT_MODE
 
 #ifdef LWM2M_SERVER_MODE
 // Clients registration/deregistration monitoring API.

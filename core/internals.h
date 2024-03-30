@@ -160,6 +160,8 @@
 #define URI_REGISTRATION_SEGMENT_LEN    2
 #define URI_BOOTSTRAP_SEGMENT           "bs"
 #define URI_BOOTSTRAP_SEGMENT_LEN       2
+#define URI_SEND_SEGMENT        "dp"
+#define URI_SEND_SEGMENT_LEN    2
 
 #define QUERY_STARTER        "?"
 #define QUERY_NAME           "ep="
