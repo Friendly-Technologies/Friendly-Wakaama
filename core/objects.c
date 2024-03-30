@@ -73,7 +73,7 @@ static int prv_getMandatoryInfo(lwm2m_context_t *contextP,
     if (dataP == NULL) return -1;
     dataP[0].id = LWM2M_SERVER_LIFETIME_ID;
     dataP[1].id = LWM2M_SERVER_BINDING_ID;
-    dataP[3].id = LWM2M_SERVER_MUTE_SEND_ID;
+    dataP[2].id = LWM2M_SERVER_MUTE_SEND_ID;
 
     if (objectP->readFunc(contextP, NULL, instanceID, &size, &dataP, objectP) != COAP_205_CONTENT)
     {
