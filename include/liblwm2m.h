@@ -831,9 +831,11 @@ int lwm2m_update_registration(lwm2m_context_t * contextP, uint16_t shortServerID
 // send deregistration to all servers connected to client
 void lwm2m_deregister(lwm2m_context_t * context);
 void lwm2m_resource_value_changed(lwm2m_context_t * contextP, lwm2m_uri_t * uriP);
-
 // Should be called when changes are made to the server life time.
 void lwm2m_update_server_lifetime(lwm2m_context_t * contextP, uint16_t serverId, time_t lifetime);
+
+// The "Send" operation is used by the LwM2M Client to send data to the LwM2M Server without explicit request by that Server
+int lwm2m_send_operation(lwm2m_context_t * contextP, lwm2m_uri_t * uriP);
 #endif
 
 #ifdef LWM2M_SERVER_MODE
