@@ -214,6 +214,22 @@ int cbor_serialize(bool isResourceInstance,
         case LWM2M_TYPE_OBJECT_INSTANCE:
         case LWM2M_TYPE_MULTIPLE_RESOURCE:
             break;
+        case LWM2M_TYPE_TIME:
+            {
+                CborTag tag;
+                err = cbor_encode_tag(&encoder, tag);
+                if (err != CborNoError) {
+                    free(encoderBuffer);
+                    return err; 
+                }
+                err = cbor_encode_int(&encoder,dataP->value.asInteger);
+                if (err != CborNoError) {
+                    free(encoderBuffer);
+                    return err; 
+                }
+                length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
+                break;
+            }
         case LWM2M_TYPE_OBJECT_LINK:
         {
             char buffer[12]; // Sufficient buffer to hold the string representation (e.g., "65535:65535" -> 5 + 1 + 5 == 11 symbols)
