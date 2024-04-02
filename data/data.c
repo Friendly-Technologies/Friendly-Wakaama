@@ -291,11 +291,11 @@ int lwm2m_data_decode_time(const lwm2m_data_t * dataP,
     LOG("Entering");
     switch (dataP->type)
     {
+        case LWM2M_TYPE_TIME:
         case LWM2M_TYPE_INTEGER:
             *valueP = dataP->value.asInteger;
             result = 1;
             break;
-        case LWM2M_TYPE_TIME:
         case LWM2M_TYPE_UNSIGNED_INTEGER:
             if (dataP->value.asUnsigned <= INT64_MAX)
             {
