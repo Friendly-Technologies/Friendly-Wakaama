@@ -671,6 +671,40 @@ void lwm2m_data_encode_objlink(uint16_t objectId,
     dataP->value.asObjLink.objectInstanceId = objectInstanceId;
 }
 
+int lwm2m_data_decode_objlink(const lwm2m_data_t * dataP,
+                           uint16_t* objectId,
+                           uint16_t* objectInstanceId)
+{
+    int result;
+
+    LOG("Entering lwm2m_data_decode_objlink ---------------------------->>>>>>>>>>>>>>>>>>>>");
+    LOG_ARG("lwm2m_data_decode_objlink type == %d", dataP->type);
+    switch (dataP->type)
+    {
+        case LWM2M_TYPE_OBJECT_LINK:
+
+            if (dataP->value.asBuffer.length != 1) return 0;
+            *objectId = dataP->value.asObjLink.objectId;
+            *objectInstanceId = dataP->value.asObjLink.objectInstanceId;
+            result = 1;
+            break;
+        case LWM2M_TYPE_STRING:
+            if (dataP->value.asBuffer.length != 1) return 0;
+            result = utils_textToObjLink(dataP->value.asBuffer.buffer, dataP->value.asBuffer.length, objectId, objectInstanceId);
+            break;
+        case LWM2M_TYPE_OPAQUE:
+            if (dataP->value.asBuffer.length != 1) return 0;
+            /// TODO: check this if it's correct
+            result = utils_textToObjLink(dataP->value.asBuffer.buffer, dataP->value.asBuffer.length, objectId, objectInstanceId);
+            break;
+        default:
+            result = 0;
+            break;
+    }
+
+    return result;
+}
+
 void lwm2m_data_include(lwm2m_data_t * subDataP,
                         size_t count,
                         lwm2m_data_t * dataP)

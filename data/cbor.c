@@ -47,6 +47,7 @@ int cbor_parse(lwm2m_uri_t * uriP,
     data->id = uriP->resourceId; // setting data->id to the resource ID
 
     CborType type = cbor_value_get_type(&value);
+    LOG_ARG("cbor_parse: type %d (0x%x) ", type, type);
 
     switch (type)
     {
@@ -56,22 +57,17 @@ int cbor_parse(lwm2m_uri_t * uriP,
             break;
         case CborTagType:
         {
-            LOG("CBOR TIME ----------------------------->>>>>>>>>>>>>>\n");
-            LOG("CBOR TIME ----------------------------->>>>>>>>>>>>>>\n");
-  
-            LOG_ARG("Parsed TAG: %lu (0x%x)\n", type, type);
-
             CborTag tag;
             err = cbor_value_get_tag(&value, &tag);
             if (err != CborNoError)
             {
+                LOG("Error: cbor_value_get_tag \n");
                 return -1;
             }
-            LOG_ARG("Parsed 2nd TAG: %lu (0x%x)\n", tag, tag);
-            // Advance to the integer value
             err = cbor_value_advance_fixed(&value);
             if (err != CborNoError)
             {
+                LOG("Error: cbor_value_advance_fixed \n");
                 return -1;
             }
             err = cbor_value_get_int64_checked(&value, &data->value.asInteger);
@@ -80,9 +76,7 @@ int cbor_parse(lwm2m_uri_t * uriP,
                 LOG("Error: cbor_value_get_int64_checked \n");
                 return -1;
             }
-            // Print the parsed integer value
-            LOG_ARG("Parsed integer value: %d 0x(%x)\n", &data->value.asInteger, &data->value.asInteger);
-            data->type = LWM2M_TYPE_TIME;
+            data->type = LWM2M_TYPE_TIME; /// now it's the TIME is the only type with a TAG
             break;
         }
         case CborSimpleType:
@@ -258,9 +252,6 @@ int cbor_serialize(bool isResourceInstance,
         return 0; /// Memory allocation failed
     }
 
-    // LOG_ARG("cbor_serialize: uriP.objectId = %d, ", uriP->objectId);
-    // LOG_ARG("cbor_serialize: uriP.instanceId = %d, ", uriP->instanceId);
-    // LOG_ARG("cbor_serialize: uriP.resourceId = %d, ", uriP->resourceId);
     LOG("---------------------------");
     LOG_ARG("cbor_serialize: dataP.type = %d, ", dataP->type);
     LOG_ARG("cbor_serialize: dataP.ID = %d, ", dataP->id);
@@ -283,7 +274,7 @@ int cbor_serialize(bool isResourceInstance,
             break;
         case LWM2M_TYPE_TIME:
         {
-            err = cbor_encode_tag(&encoder, CborUnixTime_tTag);
+            err = cbor_encode_tag(&encoder, CborUnixTime_tTag);/// now unixTime is the only tag-ed type
             if (err != CborNoError) {
                 free(encoderBuffer);
                 return err; 
@@ -298,7 +289,7 @@ int cbor_serialize(bool isResourceInstance,
         }
         case LWM2M_TYPE_OBJECT_LINK:
         {
-            char buffer[12]; // Sufficient buffer to hold the string representation (e.g., "65535:65535" -> 5 + 1 + 5 == 11 symbols)
+            char buffer[11]; // Sufficient buffer to hold the string representation (e.g., "65535:65535" -> 5 + 1 + 5 == 11 symbols)
             snprintf(buffer, sizeof(buffer), "%u:%u", dataP->value.asObjLink.objectId, dataP->value.asObjLink.objectInstanceId);
             err = cbor_encode_text_string(&encoder, buffer, strlen(buffer));
             if (err != CborNoError) {
