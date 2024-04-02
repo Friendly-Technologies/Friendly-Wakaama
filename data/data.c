@@ -677,26 +677,20 @@ int lwm2m_data_decode_objlink(const lwm2m_data_t * dataP,
 {
     int result;
 
-    LOG("Entering lwm2m_data_decode_objlink ---------------------------->>>>>>>>>>>>>>>>>>>>");
-    LOG_ARG("lwm2m_data_decode_objlink type == %d", dataP->type);
     switch (dataP->type)
     {
         case LWM2M_TYPE_OBJECT_LINK:
-            if (dataP->value.asBuffer.length != 1) return 0;
+            if (dataP->value.asBuffer.length <= 0) return 0; /// here the length can be more than 1
             *objectId = dataP->value.asObjLink.objectId;
             *objectInstanceId = dataP->value.asObjLink.objectInstanceId;
             result = 1;
             break;
         case LWM2M_TYPE_STRING:
-            LOG_ARG("length: %d", dataP->value.asBuffer.length);
-            if (dataP->value.asBuffer.length <= 0) return 0;
-            LOG("------------------- CHECk po i n t ------------ .....");
+            if (dataP->value.asBuffer.length <= 0) return 0; /// here the length can be more than 1
             result = utils_textToObjLink(dataP->value.asBuffer.buffer, dataP->value.asBuffer.length, objectId, objectInstanceId);
-            LOG_ARG("objectId: %d", objectId);
-            LOG_ARG("objectInstanceId: %d", objectInstanceId);
             break;
         case LWM2M_TYPE_OPAQUE:
-            if (dataP->value.asBuffer.length != 1) return 0;
+            if (dataP->value.asBuffer.length <= 0) return 0;
             /// TODO: check this if it's correct
             result = utils_textToObjLink(dataP->value.asBuffer.buffer, dataP->value.asBuffer.length, objectId, objectInstanceId);
             break;
@@ -704,7 +698,7 @@ int lwm2m_data_decode_objlink(const lwm2m_data_t * dataP,
             result = 0;
             break;
     }
-
+    LOG_ARG("result: %d, value: objectId: %d objectInstanceId: %d", result, objectId, objectInstanceId);
     return result;
 }
 

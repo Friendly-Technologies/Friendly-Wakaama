@@ -15,15 +15,6 @@ int cbor_parse(lwm2m_uri_t * uriP,
 
     LOG_ARG("bufferLen: %d", bufferLen);
 
-    LOG("CBOR parse --- >>>>>>>>>>>>> ");
-
-    for (uint16_t i = 0; i <= bufferLen; i++)
-    {
-        lwm2m_printf("%x", buffer[i]);
-    }
-
-    LOG("CBOR parse --- >>>>>>>>>>>>> ");
-
     *dataP = NULL;
     LOG_URI(uriP);
     if (uriP == NULL){
@@ -58,7 +49,6 @@ int cbor_parse(lwm2m_uri_t * uriP,
     data->id = uriP->resourceId;
 
     CborType type = cbor_value_get_type(&value);
-    LOG_ARG("cbor_parse: type %d (0x%x) ", type, type);
 
     switch (type)
     {
@@ -171,15 +161,10 @@ int cbor_parse(lwm2m_uri_t * uriP,
                     return -1;
                 }
 
-                // err = sscanf(temp, "%hu:%hu", &data->value.asObjLink.objectId, &data->value.asObjLink.objectInstanceId);
-                // if (err != 2) {
-                    data->value.asBuffer.buffer = (uint8_t *)temp;
-                    data->value.asBuffer.length = temPlen;
-                    data->type = LWM2M_TYPE_STRING;
-                    break;
-                // }
-                // data->type = LWM2M_TYPE_OBJECT_LINK;
-                // break;
+                data->value.asBuffer.buffer = (uint8_t *)temp;
+                data->value.asBuffer.length = temPlen;
+                data->type = LWM2M_TYPE_STRING;
+                break;
             }
         case CborBooleanType:
             err = cbor_value_get_boolean(&value, &data->value.asBoolean);
@@ -248,20 +233,7 @@ int cbor_parse(lwm2m_uri_t * uriP,
     }
     dataSize++; /// if all is OK, temporary we set dataSize == 1
     *dataP = data;
-    LOG_ARG("cbor_parse: uriP.objectId = %d, ", uriP->objectId);
-    LOG_ARG("cbor_parse: uriP.instanceId = %d, ", uriP->instanceId);
-    LOG_ARG("cbor_parse: uriP.resourceId = %d, ", uriP->resourceId);
-    LOG("---------------------------");
-    LOG_ARG("cbor_parse: dataP.type = %d, ", data->type);
-    LOG_ARG("cbor_parse: dataP.ID = %d, ", data->id);
-    LOG_ARG("cbor_parse: dataP.asBoolean = %d, ", data->value.asBoolean);
-    LOG_ARG("cbor_parse: dataP.asInteger = %d, ", data->value.asInteger);
-    LOG_ARG("cbor_parse: dataP.asUnsigned = %lu, ", data->value.asUnsigned);
-    LOG_ARG("cbor_parse: dataP.asFloat = %f, ", data->value.asFloat);
-    LOG_ARG("cbor_parse: dataP.asBufferLength = %d, ", data->value.asBuffer.length);
-    LOG_ARG("cbor_parse: dataP.asChildrenCount = %d, ", data->value.asChildren.count);
-    LOG_ARG("cbor_parse: dataP.asObjLink.objectId = %d, ", data->value.asObjLink.objectId);
-    LOG_ARG("cbor_parse: dataP.asObjLink.objectInstanceId = %d, ", data->value.asObjLink.objectInstanceId);
+
     return dataSize;
 }
 
@@ -282,18 +254,6 @@ int cbor_serialize(bool isResourceInstance,
         LOG("lwm2m_malloc FAILED");
         return -1;
     }
-
-    LOG("---------------------------");
-    LOG_ARG("cbor_serialize: dataP.type = %d, ", dataP->type);
-    LOG_ARG("cbor_serialize: dataP.ID = %d, ", dataP->id);
-    LOG_ARG("cbor_serialize: dataP.asBoolean = %d, ", dataP->value.asBoolean);
-    LOG_ARG("cbor_serialize: dataP.asInteger = %d, ", dataP->value.asInteger);
-    LOG_ARG("cbor_serialize: dataP.asUnsigned = %lu, ", dataP->value.asUnsigned);
-    LOG_ARG("cbor_serialize: dataP.asFloat = %f, ", dataP->value.asFloat);
-    LOG_ARG("cbor_serialize: dataP.asBufferLength = %d, ", dataP->value.asBuffer.length);
-    LOG_ARG("cbor_serialize: dataP.asChildrenCount = %d, ", dataP->value.asChildren.count);
-    LOG_ARG("cbor_serialize: dataP.asObjLink.objectId = %d, ", dataP->value.asObjLink.objectId);
-    LOG_ARG("cbor_serialize: dataP.asObjLink.objectInstanceId = %d, ", dataP->value.asObjLink.objectInstanceId);
 
     cbor_encoder_init(&encoder, encoderBuffer, bufferSize, 0);
 
@@ -321,12 +281,12 @@ int cbor_serialize(bool isResourceInstance,
         }
         case LWM2M_TYPE_OBJECT_LINK:
         {
-            char buffer[11]; // Sufficient buffer to hold the string representation (e.g., "65535:65535" -> 5 + 1 + 5 == 11 symbols)
+            char buffer[12]; // Sufficient buffer to hold the string representation (e.g., "65535:65535" -> 5 + 1 + 5 == 11 symbols)
             snprintf(buffer, sizeof(buffer), "%u:%u", dataP->value.asObjLink.objectId, dataP->value.asObjLink.objectInstanceId);
             err = cbor_encode_text_string(&encoder, buffer, strlen(buffer));
             if (err != CborNoError) {
                 lwm2m_free(encoderBuffer);
-                LOG_ARG("cbor_encode_text_string FAILED with error %d", err);
+                LOG_ARG("cbor_encode_text_string/obj_link FAILED with error %d", err);
                 return -1; 
             }
             length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
