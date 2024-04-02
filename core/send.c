@@ -53,6 +53,10 @@ int lwm2m_send_operation(lwm2m_context_t * contextP, lwm2m_uri_t * uriP) {
     lwm2m_transaction_t * transaction;
     lwm2m_server_t * targetP = contextP->serverList;
 
+    if (contextP->state != STATE_READY) {
+        return COAP_503_SERVICE_UNAVAILABLE;
+    }
+
     result = create_payload(contextP, uriP, &payload, &payload_length);
     LOG_ARG("    => result: %u, payload length: %u", result, payload_length);
     if (result != COAP_205_CONTENT) {
