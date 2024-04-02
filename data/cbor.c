@@ -230,6 +230,7 @@ int cbor_parse(lwm2m_uri_t * uriP,
     }
     dataSize++; /// if all is OK, temporary we set dataSize == 1
     *dataP = data;
+    
     return dataSize;
 }
 
