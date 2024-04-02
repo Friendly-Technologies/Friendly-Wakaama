@@ -14,8 +14,6 @@ int cbor_parse(lwm2m_uri_t * uriP,
     *dataP = NULL;
 
     LOG_ARG("bufferLen: %d", bufferLen);
-
-    *dataP = NULL;
     LOG_URI(uriP);
     if (uriP == NULL){
         return -1;
@@ -49,7 +47,6 @@ int cbor_parse(lwm2m_uri_t * uriP,
     data->id = uriP->resourceId;
 
     CborType type = cbor_value_get_type(&value);
-
     switch (type)
     {
         case CborArrayType:
@@ -233,7 +230,6 @@ int cbor_parse(lwm2m_uri_t * uriP,
     }
     dataSize++; /// if all is OK, temporary we set dataSize == 1
     *dataP = data;
-
     return dataSize;
 }
 
