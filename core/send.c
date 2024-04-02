@@ -17,11 +17,9 @@ static uint8_t create_payload(lwm2m_context_t * contextP, lwm2m_uri_t * uriP, ui
 
     LOG_URI(uriP);
     result = object_readData(contextP, NULL, uriP, &size, &dataP);
-    LOG_ARG("    => result: %u, size: %d", result, size);
     if (result == COAP_205_CONTENT)
     {
         res = lwm2m_data_serialize(uriP, size, dataP, &formatP, bufferP);
-        LOG_ARG("    => serialize result: %d", res);
         if (res < 0)
         {
             result = COAP_500_INTERNAL_SERVER_ERROR;
@@ -58,19 +56,21 @@ int lwm2m_send_operation(lwm2m_context_t * contextP, lwm2m_uri_t * uriP) {
     }
 
     result = create_payload(contextP, uriP, &payload, &payload_length);
-    LOG_ARG("    => result: %u, payload length: %u", result, payload_length);
+    LOG_ARG("Created payload for send, result: %u, payload length: %u", result, payload_length);
     if (result != COAP_205_CONTENT) {
         return result;
     }
 
     while (targetP != NULL) {
         if (!is_server_valid_for_send(targetP)) {
+            LOG_ARG("Server %d is not valid for send", targetP->shortID);
             targetP = targetP->next;
             continue;
         }
 
         transaction = transaction_new(targetP->sessionH, COAP_POST, NULL, NULL, contextP->nextMID++, 4, NULL);
         if (transaction == NULL) {
+            LOG_ARG("Transaction_new failed, server: %d", targetP->shortID);
             targetP = targetP->next;
             continue;
         }
@@ -79,6 +79,7 @@ int lwm2m_send_operation(lwm2m_context_t * contextP, lwm2m_uri_t * uriP) {
         coap_set_header_content_type(transaction->message, LWM2M_CONTENT_SENML_JSON);
 
         if (!transaction_set_payload(transaction, payload, (size_t)payload_length)) {
+            LOG_ARG("Transaction_set_payload failed, server: %d", targetP->shortID);
             transaction_free(transaction);
             targetP = targetP->next;
             continue;
@@ -88,9 +89,12 @@ int lwm2m_send_operation(lwm2m_context_t * contextP, lwm2m_uri_t * uriP) {
         transaction->userData = NULL;
         contextP->transactionList = (lwm2m_transaction_t *)LWM2M_LIST_ADD(contextP->transactionList, transaction);
         if (transaction_send(contextP, transaction) != 0) {
+            LOG_ARG("Transaction_send failed, server: %d", targetP->shortID);
             targetP = targetP->next;
             continue;
         }
+
+        targetP = targetP->next;
     }
     lwm2m_free(payload);
 
