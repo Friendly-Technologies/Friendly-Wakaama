@@ -171,10 +171,15 @@ int cbor_parse(lwm2m_uri_t * uriP,
                     return -1;
                 }
 
-                data->value.asBuffer.buffer = (uint8_t *)temp;
-                data->value.asBuffer.length = temPlen;
-                data->type = LWM2M_TYPE_STRING;
-                break;
+                // err = sscanf(temp, "%hu:%hu", &data->value.asObjLink.objectId, &data->value.asObjLink.objectInstanceId);
+                // if (err != 2) {
+                    data->value.asBuffer.buffer = (uint8_t *)temp;
+                    data->value.asBuffer.length = temPlen;
+                    data->type = LWM2M_TYPE_STRING;
+                    break;
+                // }
+                // data->type = LWM2M_TYPE_OBJECT_LINK;
+                // break;
             }
         case CborBooleanType:
             err = cbor_value_get_boolean(&value, &data->value.asBoolean);

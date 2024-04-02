@@ -682,15 +682,18 @@ int lwm2m_data_decode_objlink(const lwm2m_data_t * dataP,
     switch (dataP->type)
     {
         case LWM2M_TYPE_OBJECT_LINK:
-
             if (dataP->value.asBuffer.length != 1) return 0;
             *objectId = dataP->value.asObjLink.objectId;
             *objectInstanceId = dataP->value.asObjLink.objectInstanceId;
             result = 1;
             break;
         case LWM2M_TYPE_STRING:
-            if (dataP->value.asBuffer.length != 1) return 0;
+            LOG_ARG("length: %d", dataP->value.asBuffer.length);
+            if (dataP->value.asBuffer.length <= 0) return 0;
+            LOG("------------------- CHECk po i n t ------------ .....");
             result = utils_textToObjLink(dataP->value.asBuffer.buffer, dataP->value.asBuffer.length, objectId, objectInstanceId);
+            LOG_ARG("objectId: %d", objectId);
+            LOG_ARG("objectInstanceId: %d", objectInstanceId);
             break;
         case LWM2M_TYPE_OPAQUE:
             if (dataP->value.asBuffer.length != 1) return 0;
