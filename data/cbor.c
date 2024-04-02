@@ -258,6 +258,21 @@ int cbor_serialize(bool isResourceInstance,
         return 0; /// Memory allocation failed
     }
 
+    // LOG_ARG("cbor_serialize: uriP.objectId = %d, ", uriP->objectId);
+    // LOG_ARG("cbor_serialize: uriP.instanceId = %d, ", uriP->instanceId);
+    // LOG_ARG("cbor_serialize: uriP.resourceId = %d, ", uriP->resourceId);
+    LOG("---------------------------");
+    LOG_ARG("cbor_serialize: dataP.type = %d, ", dataP->type);
+    LOG_ARG("cbor_serialize: dataP.ID = %d, ", dataP->id);
+    LOG_ARG("cbor_serialize: dataP.asBoolean = %d, ", dataP->value.asBoolean);
+    LOG_ARG("cbor_serialize: dataP.asInteger = %d, ", dataP->value.asInteger);
+    LOG_ARG("cbor_serialize: dataP.asUnsigned = %lu, ", dataP->value.asUnsigned);
+    LOG_ARG("cbor_serialize: dataP.asFloat = %f, ", dataP->value.asFloat);
+    LOG_ARG("cbor_serialize: dataP.asBufferLength = %d, ", dataP->value.asBuffer.length);
+    LOG_ARG("cbor_serialize: dataP.asChildrenCount = %d, ", dataP->value.asChildren.count);
+    LOG_ARG("cbor_serialize: dataP.asObjLink.objectId = %d, ", dataP->value.asObjLink.objectId);
+    LOG_ARG("cbor_serialize: dataP.asObjLink.objectInstanceId = %d, ", dataP->value.asObjLink.objectInstanceId);
+
     cbor_encoder_init(&encoder, encoderBuffer, bufferSize, 0);
 
     switch (dataP->type) {
@@ -268,7 +283,7 @@ int cbor_serialize(bool isResourceInstance,
             break;
         case LWM2M_TYPE_TIME:
         {
-            err = cbor_encode_tag(&encoder, dataP->type);
+            err = cbor_encode_tag(&encoder, CborUnixTime_tTag);
             if (err != CborNoError) {
                 free(encoderBuffer);
                 return err; 
