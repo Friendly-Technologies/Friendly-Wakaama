@@ -95,25 +95,17 @@ static int prv_textSerialize(lwm2m_data_t * dataP,
     case LWM2M_TYPE_OBJECT_LINK:
     {
         char stringBuffer[11];
-        size_t length;
+        size_t length = 0;
         
-        length = utils_intToText(dataP->value.asObjLink.objectId, (uint8_t*)stringBuffer, 5);
+        length = utils_objLinkToText(dataP->value.asObjLink.objectId, dataP->value.asObjLink.objectInstanceId, (uint8_t*)stringBuffer, 11);
         if (length == 0) return -1;
 
-        stringBuffer[5] = ':';
-        res = length + 1;
-
-        length = utils_intToText(dataP->value.asObjLink.objectInstanceId, (uint8_t*)stringBuffer + res, 5);
-        if (length == 0) return -1;
-
-        res += length;
-
-        *bufferP = (uint8_t *)lwm2m_malloc(res);
+        *bufferP = (uint8_t *)lwm2m_malloc(length);
         if (*bufferP == NULL) return -1;
 
-        memcpy(*bufferP, stringBuffer, res);
+        memcpy(*bufferP, stringBuffer, length);
 
-        return res;
+        return (int)length;
     }
 
     case LWM2M_TYPE_OPAQUE:
