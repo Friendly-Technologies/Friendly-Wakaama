@@ -915,8 +915,17 @@ int lwm2m_data_serialize(lwm2m_uri_t * uriP,
 
 #ifdef LWM2M_SUPPORT_CBOR
     case LWM2M_CONTENT_CBOR:
-        LOG("CBOR cbor_serialize ");
-        return cbor_serialize(true, size, dataP, bufferP);
+        #ifndef LWM2M_VERSION_1_0
+        if (uriP != NULL && LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP))
+        {
+            if (dataP->type == LWM2M_TYPE_MULTIPLE_RESOURCE) {
+                size = dataP->value.asChildren.count;
+                dataP = dataP->value.asChildren.array;
+            }
+            if(size != 1) return -1;
+        }
+        #endif
+        return cbor_serialize(size, dataP, bufferP);
 #endif
 
 #ifdef LWM2M_CLIENT_MODE

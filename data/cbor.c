@@ -241,8 +241,7 @@ int cbor_parse(lwm2m_uri_t * uriP,
 
 #define DEFAULT_BUFF_SIZE (1024UL)
 
-int cbor_serialize(bool isResourceInstance, 
-                   int size,
+int cbor_serialize(int size,
                    lwm2m_data_t *dataP,
                    uint8_t **bufferP) 
 {
@@ -251,6 +250,8 @@ int cbor_serialize(bool isResourceInstance,
     int length = 0;
     *bufferP = NULL;
     size_t bufferSize = DEFAULT_BUFF_SIZE; /// TODO Add the ability to calculate the required memory for the cbor buffer
+
+    LOG("CBOR cbor_serialize ");
     uint8_t *encoderBuffer = (uint8_t *)lwm2m_malloc(bufferSize);
     if (encoderBuffer == NULL) {
         LOG("lwm2m_malloc FAILED");

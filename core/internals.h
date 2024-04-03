@@ -378,7 +378,7 @@ int tlv_serialize(bool isResourceInstance, int size, lwm2m_data_t * dataP, uint8
 #ifdef LWM2M_SUPPORT_CBOR
 // defined in cbor.c
 int cbor_parse(lwm2m_uri_t * uriP, const uint8_t * buffer, size_t bufferLen, lwm2m_data_t ** dataP);
-int cbor_serialize(bool isResourceInstance, int size, lwm2m_data_t * dataP, uint8_t ** bufferP);
+int cbor_serialize(int size, lwm2m_data_t * dataP, uint8_t ** bufferP);
 #endif
 
 // defined in json.c

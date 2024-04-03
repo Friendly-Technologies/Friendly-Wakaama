@@ -740,7 +740,6 @@ uint8_t utils_getResponseFormat(uint8_t accept_num,
         {
         case LWM2M_TYPE_OBJECT:
         case LWM2M_TYPE_OBJECT_INSTANCE:
-        case LWM2M_TYPE_MULTIPLE_RESOURCE:
             singular = false;
             break;
         default:
@@ -791,8 +790,11 @@ uint8_t utils_getResponseFormat(uint8_t accept_num,
 
 #ifdef LWM2M_SUPPORT_CBOR
             case LWM2M_CONTENT_CBOR:
-                *format = LWM2M_CONTENT_CBOR;
-                found = true;
+                if (singular)
+                {
+                    *format = LWM2M_CONTENT_CBOR;
+                    found = true;
+                }
                 break;
 #endif
 #ifdef LWM2M_SUPPORT_SENML_CBOR
