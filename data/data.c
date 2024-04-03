@@ -283,6 +283,75 @@ void lwm2m_data_encode_nstring(const char * string,
     }
 }
 
+int lwm2m_data_decode_time(const lwm2m_data_t * dataP,
+                          int64_t * valueP)
+{
+    int result = 0;
+
+    LOG("Entering");
+    switch (dataP->type)
+    {
+        case LWM2M_TYPE_TIME:
+        case LWM2M_TYPE_INTEGER:
+            *valueP = dataP->value.asInteger;
+            result = 1;
+            break;
+        case LWM2M_TYPE_UNSIGNED_INTEGER:
+            if (dataP->value.asUnsigned <= INT64_MAX)
+            {
+                *valueP = dataP->value.asUnsigned;
+                result = 1;
+            }
+            break;
+        case LWM2M_TYPE_STRING:
+            result = utils_textToInt(dataP->value.asBuffer.buffer, dataP->value.asBuffer.length, valueP);
+            break;
+        case LWM2M_TYPE_OPAQUE:
+            switch (dataP->value.asBuffer.length)
+            {
+                case 1:
+                    *valueP = (int8_t)dataP->value.asBuffer.buffer[0];
+                    result = 1;
+                    break;
+                case 2:
+                {
+                    int16_t value;
+                    utils_copyValue(&value, dataP->value.asBuffer.buffer, dataP->value.asBuffer.length);
+                    *valueP = value;
+                    result = 1;
+                    break;
+                }
+                case 4:
+                {
+                    int32_t value;
+                    utils_copyValue(&value, dataP->value.asBuffer.buffer, dataP->value.asBuffer.length);
+                    *valueP = value;
+                    result = 1;
+                    break;
+                }
+                case 8:
+                    utils_copyValue(valueP, dataP->value.asBuffer.buffer, dataP->value.asBuffer.length);
+                    result = 1;
+                    break;
+                default:
+                    break;
+            }//!LWM2M_TYPE_OPAQUE-case
+            break;
+
+        default:
+            break;
+    } ///!main switch-case
+    LOG_ARG("result: %d, value: %" PRId64, result, *valueP);
+    return result;
+}
+
+void lwm2m_data_encode_time(uint64_t value, lwm2m_data_t * dataP)
+{
+   LOG_ARG("value: %" PRId64 "", value);
+   dataP->type = LWM2M_TYPE_TIME;
+   dataP->value.asInteger = value;
+}
+
 void lwm2m_data_encode_int(int64_t value,
                            lwm2m_data_t * dataP)
 {
@@ -600,6 +669,32 @@ void lwm2m_data_encode_objlink(uint16_t objectId,
     dataP->type = LWM2M_TYPE_OBJECT_LINK;
     dataP->value.asObjLink.objectId = objectId;
     dataP->value.asObjLink.objectInstanceId = objectInstanceId;
+}
+
+int lwm2m_data_decode_objlink(const lwm2m_data_t * dataP,
+                           uint16_t* objectId,
+                           uint16_t* objectInstanceId)
+{
+    int result;
+
+    switch (dataP->type)
+    {
+        case LWM2M_TYPE_OBJECT_LINK:
+            if (dataP->value.asBuffer.length <= 0) return 0; /// here the length can be more than 1
+            *objectId = dataP->value.asObjLink.objectId;
+            *objectInstanceId = dataP->value.asObjLink.objectInstanceId;
+            result = 1;
+            break;
+        case LWM2M_TYPE_STRING:
+            if (dataP->value.asBuffer.length <= 0) return 0; /// here the length can be more than 1
+            result = utils_textToObjLink(dataP->value.asBuffer.buffer, dataP->value.asBuffer.length, objectId, objectInstanceId);
+            break;
+        default:
+            result = 0;
+            break;
+    }
+    LOG_ARG("result: %d, value: objectId: %d objectInstanceId: %d", result, objectId, objectInstanceId);
+    return result;
 }
 
 void lwm2m_data_include(lwm2m_data_t * subDataP,

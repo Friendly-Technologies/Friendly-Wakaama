@@ -336,6 +336,7 @@ typedef enum
     LWM2M_TYPE_UNSIGNED_INTEGER,
     LWM2M_TYPE_FLOAT,
     LWM2M_TYPE_BOOLEAN,
+    LWM2M_TYPE_TIME,
 
     LWM2M_TYPE_OBJECT_LINK,
     LWM2M_TYPE_CORE_LINK
@@ -401,7 +402,10 @@ void lwm2m_data_encode_float(double value, lwm2m_data_t * dataP);
 int lwm2m_data_decode_float(const lwm2m_data_t * dataP, double * valueP);
 void lwm2m_data_encode_bool(bool value, lwm2m_data_t * dataP);
 int lwm2m_data_decode_bool(const lwm2m_data_t * dataP, bool * valueP);
+int lwm2m_data_decode_time(const lwm2m_data_t * dataP, int64_t * valueP);
+void lwm2m_data_encode_time(uint64_t value, lwm2m_data_t * dataP);
 void lwm2m_data_encode_objlink(uint16_t objectId, uint16_t objectInstanceId, lwm2m_data_t * dataP);
+int lwm2m_data_decode_objlink(const lwm2m_data_t * dataP, uint16_t* objectId, uint16_t* objectInstanceId);
 void lwm2m_data_encode_corelink(const char * corelink, lwm2m_data_t * dataP);
 void lwm2m_data_encode_instances(lwm2m_data_t * subDataP, size_t count, lwm2m_data_t * dataP);
 void lwm2m_data_include(lwm2m_data_t * subDataP, size_t count, lwm2m_data_t * dataP);

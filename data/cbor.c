@@ -51,10 +51,38 @@ int cbor_parse(lwm2m_uri_t * uriP,
     {
         case CborArrayType:
         case CborMapType:
-        case CborTagType:
             LOG_ARG("Cbor Yet Unsupported Type 0x%x\n", CborTagType);
             return -1; 
             break;
+        case CborTagType:
+        {
+            CborTag tag;
+            err = cbor_value_get_tag(&value, &tag);
+            if (err != CborNoError)
+            {
+                LOG("Error: cbor_value_get_tag \n");
+                return -1;
+            }
+            if (tag != CborUnixTime_tTag)
+            {
+                LOG("Error: tag is NOT CborUnixTime_tTag \n"); /// now we support only this kind of a TAG
+                return -1;
+            }
+            err = cbor_value_advance_fixed(&value);
+            if (err != CborNoError)
+            {
+                LOG("Error: cbor_value_advance_fixed \n");
+                return -1;
+            }
+            err = cbor_value_get_int64_checked(&value, &data->value.asInteger);
+            if (err != CborNoError)
+            {
+                LOG("Error: cbor_value_get_int64_checked \n");
+                return -1;
+            }
+            data->type = LWM2M_TYPE_TIME; /// now it's the TIME is the only type with a TAG
+            break;
+        }
         case CborSimpleType:
         case CborIntegerType:
             if (cbor_value_is_unsigned_integer(&value)){
@@ -238,6 +266,21 @@ int cbor_serialize(bool isResourceInstance,
         case LWM2M_TYPE_MULTIPLE_RESOURCE:
             return -1;
             break;
+        case LWM2M_TYPE_TIME:
+        {
+            err = cbor_encode_tag(&encoder, CborUnixTime_tTag);/// now unixTime is the only tag-ed type
+            if (err != CborNoError) {
+                free(encoderBuffer);
+                return err; 
+            }
+            err = cbor_encode_int(&encoder, dataP->value.asInteger);
+            if (err != CborNoError) {
+                free(encoderBuffer);
+                return err; 
+            }
+            length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
+            break;
+        }
         case LWM2M_TYPE_OBJECT_LINK:
         {
             char buffer[12]; // Sufficient buffer to hold the string representation (e.g., "65535:65535" -> 5 + 1 + 5 == 11 symbols)
@@ -245,7 +288,7 @@ int cbor_serialize(bool isResourceInstance,
             err = cbor_encode_text_string(&encoder, buffer, strlen(buffer));
             if (err != CborNoError) {
                 lwm2m_free(encoderBuffer);
-                LOG_ARG("cbor_encode_text_string FAILED with error %d", err);
+                LOG_ARG("cbor_encode_text_string/obj_link FAILED with error %d", err);
                 return -1; 
             }
             length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);
