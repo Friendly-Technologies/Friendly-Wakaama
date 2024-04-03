@@ -389,8 +389,8 @@ int senml_cbor_serialize(const lwm2m_uri_t * uriP, int size, const lwm2m_data_t 
 
 #ifdef LWM2M_SUPPORT_SENML_CBOR
 // defined in senml_cbor.c
-int senml_cbor_parse(lwm2m_uri_t * uriP, const uint8_t * buffer, size_t bufferLen, lwm2m_data_t ** dataP);
-int senml_cbor_serialize(bool isResourceInstance, int size, lwm2m_data_t * dataP, uint8_t ** bufferP);
+int senml_cbor_parse(const lwm2m_uri_t * uriP, const uint8_t * buffer, size_t bufferLen, lwm2m_data_t ** dataP);
+int senml_cbor_serialize(const lwm2m_uri_t * uriP, int size, const lwm2m_data_t * dataP, uint8_t ** bufferP);
 #endif
 
 // defined in json.c
