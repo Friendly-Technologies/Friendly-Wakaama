@@ -932,6 +932,11 @@ int lwm2m_data_serialize(lwm2m_uri_t * uriP,
         LOG("CBOR senml_cbor_serialize ");
         return senml_cbor_serialize(uriP, size, dataP, bufferP);
 #endif
+#ifdef LWM2M_SUPPORT_SENML_CBOR
+    case LWM2M_CONTENT_SENML_CBOR:
+        LOG("CBOR senml_cbor_serialize ");
+        return senml_cbor_serialize(true, size, dataP, bufferP);
+#endif
 
 #ifdef LWM2M_CLIENT_MODE
     case LWM2M_CONTENT_LINK:
