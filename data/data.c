@@ -689,11 +689,6 @@ int lwm2m_data_decode_objlink(const lwm2m_data_t * dataP,
             if (dataP->value.asBuffer.length <= 0) return 0; /// here the length can be more than 1
             result = utils_textToObjLink(dataP->value.asBuffer.buffer, dataP->value.asBuffer.length, objectId, objectInstanceId);
             break;
-        case LWM2M_TYPE_OPAQUE:
-            if (dataP->value.asBuffer.length <= 0) return 0;
-            /// TODO: check this if it's correct
-            result = utils_textToObjLink(dataP->value.asBuffer.buffer, dataP->value.asBuffer.length, objectId, objectInstanceId);
-            break;
         default:
             result = 0;
             break;

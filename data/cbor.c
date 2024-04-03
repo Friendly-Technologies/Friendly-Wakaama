@@ -63,6 +63,11 @@ int cbor_parse(lwm2m_uri_t * uriP,
                 LOG("Error: cbor_value_get_tag \n");
                 return -1;
             }
+            if (tag != CborUnixTime_tTag)
+            {
+                LOG("Error: tag is NOT CborUnixTime_tTag \n"); /// now we support only this kind of a TAG
+                return -1;
+            }
             err = cbor_value_advance_fixed(&value);
             if (err != CborNoError)
             {
