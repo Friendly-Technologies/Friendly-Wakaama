@@ -560,19 +560,10 @@ int tlv_serialize(bool isResourceInstance,
 
         case LWM2M_TYPE_OBJECT_LINK:
             {
-                int k;
-                uint8_t buf[4];
-                uint32_t v = cur->value.asObjLink.objectId;
-                v <<= 16;
-                v |= cur->value.asObjLink.objectInstanceId;
-                for (k = 3; k >= 0; --k) {
-                    buf[k] = (uint8_t)(v & 0xFF);
-                    v >>= 8;
-                }
                 // keep encoding as buffer
                 headerLen = prv_createHeader(*bufferP + index, isInstance, cur->type, cur->id, 4);
                 index += headerLen;
-                memcpy(*bufferP + index, buf, 4);
+                utils_objLinkToOpaque(cur->value.asObjLink.objectId, cur->value.asObjLink.objectInstanceId, *bufferP + index, 4);
                 index += 4;
             }
             break;

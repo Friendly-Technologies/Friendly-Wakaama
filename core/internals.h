@@ -457,6 +457,14 @@ int utils_textToObjLink(const uint8_t * buffer,
                         int length,
                         uint16_t * objectId,
                         uint16_t * objectInstanceId);
+size_t utils_objLinkToOpaque(uint16_t objectId,
+                           uint16_t objectInstanceId,
+                           uint8_t * string,
+                           size_t length);
+int utils_opaqueToObjLink(const uint8_t * buffer,
+                        int length,
+                        uint16_t * objectId,
+                        uint16_t * objectInstanceId);
 void utils_copyValue(void * dst, const void * src, size_t len);
 size_t utils_base64GetSize(size_t dataLen);
 size_t utils_base64Encode(const uint8_t * dataP, size_t dataLen, uint8_t * bufferP, size_t bufferLen);
