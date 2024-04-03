@@ -569,17 +569,14 @@ size_t utils_objLinkToOpaque(uint16_t objectId,
                            uint16_t objectInstanceId,
                            uint8_t * buffer,
                            size_t length) {
-    int k;
-    uint32_t v = 0;
     uint8_t objLinkSize = 4;
+    uint8_t idSize = 2;
 
     if (length < objLinkSize) return 0;
 
-    v = ((uint32_t)objectId) << 16 | objectInstanceId;
-    for (k = (objLinkSize - 1); k >= 0; --k) {
-        buffer[k] = (uint8_t)(v & 0xFF);
-        v >>= 8;
-    }
+    utils_copyValue(buffer, &objectId, idSize);
+    utils_copyValue(buffer + idSize, &objectInstanceId, idSize);
+
     return objLinkSize;
 }
 
@@ -587,18 +584,13 @@ int utils_opaqueToObjLink(const uint8_t * buffer,
                         int length,
                         uint16_t * objectId,
                         uint16_t * objectInstanceId) {
-    int k;
-    uint32_t v = 0;
     uint8_t objLinkSize = 4;
+    uint8_t idSize = 2;
 
     if (length < objLinkSize) return 0;
 
-    for (k = (objLinkSize - 1); k >= 0; --k) {
-        v = (v << 8) | buffer[k];
-    }
-
-    *objectId = (uint16_t)(v >> 16);
-    *objectInstanceId = (uint16_t)(v & 0xFFFF);
+    utils_copyValue(objectId, buffer, idSize);
+    utils_copyValue(objectInstanceId, buffer + idSize, idSize);
 
     return 1;
 }
