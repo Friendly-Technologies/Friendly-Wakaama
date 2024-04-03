@@ -168,6 +168,7 @@ uint8_t object_checkReadable(lwm2m_context_t * contextP,
             switch (valueP->type)
             {
                 case LWM2M_TYPE_INTEGER:
+                case LWM2M_TYPE_TIME:
                 case LWM2M_TYPE_UNSIGNED_INTEGER:
                 case LWM2M_TYPE_FLOAT:
                     break;

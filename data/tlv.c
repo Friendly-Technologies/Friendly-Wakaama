@@ -153,6 +153,7 @@ static uint8_t prv_getHeaderType(lwm2m_data_type_t type)
 
     case LWM2M_TYPE_STRING:
     case LWM2M_TYPE_INTEGER:
+    case LWM2M_TYPE_TIME:
     case LWM2M_TYPE_UNSIGNED_INTEGER:
     case LWM2M_TYPE_FLOAT:
     case LWM2M_TYPE_BOOLEAN:
@@ -441,6 +442,7 @@ static int prv_getLength(int size,
             break;
 
         case LWM2M_TYPE_INTEGER:
+        case LWM2M_TYPE_TIME:
             {
                 size_t data_len;
                 uint8_t unused_buffer[_PRV_64BIT_BUFFER_SIZE];
@@ -587,6 +589,7 @@ int tlv_serialize(bool isResourceInstance,
             break;
 
         case LWM2M_TYPE_INTEGER:
+        case LWM2M_TYPE_TIME:
             {
                 size_t data_len;
                 uint8_t data_buffer[_PRV_64BIT_BUFFER_SIZE];
