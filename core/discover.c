@@ -178,6 +178,7 @@ static int prv_serializeLinkData(lwm2m_context_t * contextP,
     case LWM2M_TYPE_STRING:
     case LWM2M_TYPE_OPAQUE:
     case LWM2M_TYPE_INTEGER:
+    case LWM2M_TYPE_TIME:
     case LWM2M_TYPE_UNSIGNED_INTEGER:
     case LWM2M_TYPE_FLOAT:
     case LWM2M_TYPE_BOOLEAN:

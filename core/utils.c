@@ -565,6 +565,36 @@ size_t utils_objLinkToText(uint16_t objectId,
     return head + res;
 }
 
+size_t utils_objLinkToOpaque(uint16_t objectId,
+                           uint16_t objectInstanceId,
+                           uint8_t * buffer,
+                           size_t length) {
+    uint8_t objLinkSize = 4;
+    uint8_t idSize = 2;
+
+    if (length < objLinkSize) return 0;
+
+    utils_copyValue(buffer, &objectId, idSize);
+    utils_copyValue(buffer + idSize, &objectInstanceId, idSize);
+
+    return objLinkSize;
+}
+
+int utils_opaqueToObjLink(const uint8_t * buffer,
+                        int length,
+                        uint16_t * objectId,
+                        uint16_t * objectInstanceId) {
+    uint8_t objLinkSize = 4;
+    uint8_t idSize = 2;
+
+    if (length < objLinkSize) return 0;
+
+    utils_copyValue(objectId, buffer, idSize);
+    utils_copyValue(objectInstanceId, buffer + idSize, idSize);
+
+    return 1;
+}
+
 lwm2m_version_t utils_stringToVersion(uint8_t * buffer,
                                       size_t length)
 {
@@ -740,7 +770,6 @@ uint8_t utils_getResponseFormat(uint8_t accept_num,
         {
         case LWM2M_TYPE_OBJECT:
         case LWM2M_TYPE_OBJECT_INSTANCE:
-        case LWM2M_TYPE_MULTIPLE_RESOURCE:
             singular = false;
             break;
         default:
@@ -791,8 +820,11 @@ uint8_t utils_getResponseFormat(uint8_t accept_num,
 
 #ifdef LWM2M_SUPPORT_CBOR
             case LWM2M_CONTENT_CBOR:
-                *format = LWM2M_CONTENT_CBOR;
-                found = true;
+                if (singular)
+                {
+                    *format = LWM2M_CONTENT_CBOR;
+                    found = true;
+                }
                 break;
 #endif
 #ifdef LWM2M_SUPPORT_SENML_CBOR
