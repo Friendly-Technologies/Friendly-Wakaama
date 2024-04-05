@@ -85,7 +85,6 @@ int senml_cbor_serializeData(const lwm2m_data_t * tlvP,
     switch (level)
     {
         case URI_DEPTH_RESOURCE_INSTANCE:
-
             if (!*baseNameOutput && baseUriLen > 0)
             {
                 LOG(">>>>>>>>>>>>> CHECKPOINT 1 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
@@ -97,21 +96,22 @@ int senml_cbor_serializeData(const lwm2m_data_t * tlvP,
                     return -1;
                 }
                 
-                err = cbor_encoder_create_map(encoder, encoder, 2);
+                err = cbor_encoder_create_map(encoder, encoder, 3);
                 if (err != CborNoError) 
                 {
                     LOG_ARG("cbor_encoder_create_map FAILED err=%d", err);
                     return -1;
                 }
 
-                err = cbor_encode_int(encoder, 0); ///Base name code in SENML-CBOR == (-2)
+                err = cbor_encode_int(encoder, -2); ///Base name code in SENML-CBOR == (-2)
                 if (err != CborNoError) 
                 {
                     LOG_ARG("cbor_encode_int FAILED err=%d", err);
                     return -1;
                 }
 
-                // baseUriStr[baseUriLen++] = '0'; /// for the MULTIPLE objects we need to add 0 to the URI
+                baseUriStr[baseUriLen++] = '0';
+                lwm2m_printf("%.*s", baseUriLen, baseUriStr);
 
                 err = cbor_encode_text_string(encoder, (char *)baseUriStr, baseUriLen);
                 if (err != CborNoError) 
@@ -130,7 +130,6 @@ int senml_cbor_serializeData(const lwm2m_data_t * tlvP,
                 if (!baseNameOutput)
                 {
                     err = cbor_encoder_create_map(encoder, encoder, 2);
-                    LOG(">>>>>>>>>>>>> CHECKPOINT 2.5 >>>>>>>>>>>>>>>>>>>>>>>>>>>");
                     if (err != CborNoError) 
                     {
                         LOG_ARG("cbor_encoder_create_map FAILED err=%d", err);
@@ -138,7 +137,19 @@ int senml_cbor_serializeData(const lwm2m_data_t * tlvP,
                     }
                 }
 
-                
+                err = cbor_encode_int(encoder, 0); /// Name code in SENML-CBOR == (0)
+                if (err != CborNoError) 
+                {
+                    LOG_ARG("cbor_encode_int FAILED err=%d", err);
+                    return -1;
+                }
+
+                err = cbor_encode_int(encoder, tlvP->id); // Assuming resource ID is used as key
+                if (err != CborNoError) 
+                {
+                    LOG_ARG("cbor_encode_int FAILED err=%d", err);
+                    return -1;
+                }
             }
 
             if (tlvP->type != LWM2M_TYPE_UNDEFINED)
@@ -170,7 +181,7 @@ int senml_cbor_serializeData(const lwm2m_data_t * tlvP,
             }
             break;
         case URI_DEPTH_RESOURCE:
-
+            LOG(">>>>>>>>>>>>> CHECKPOINT 4 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>"); 
             err = cbor_encoder_create_array(encoder, encoder, 1);
             if (err != CborNoError) 
             {
@@ -185,7 +196,7 @@ int senml_cbor_serializeData(const lwm2m_data_t * tlvP,
                 return -1;
             }
 
-            err = cbor_encode_int(encoder, 0); ///Base name code in SENML-CBOR == (-2)
+            err = cbor_encode_int(encoder, -2); ///Base name code in SENML-CBOR == (-2)
             if (err != CborNoError) 
             {
                 LOG_ARG("cbor_encode_int FAILED err=%d", err);
@@ -198,7 +209,8 @@ int senml_cbor_serializeData(const lwm2m_data_t * tlvP,
                 LOG_ARG("cbor_encode_text_string FAILED err=%d", err);
                 return -1;
             }
-                        
+            LOG(">>>>>>>>>>>>> CHECKPOINT 5 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>"); 
+            
             err = cbor_encode_int(encoder, 3); /// String-type in SENML-CBOR == (3)
             if (err != CborNoError) 
             {
@@ -223,7 +235,7 @@ int senml_cbor_serializeData(const lwm2m_data_t * tlvP,
             head = cbor_encoder_get_buffer_size(encoder, buffer);
             break;
         default:
-            LOG(" default level "); 
+            LOG(">>>>>>>>>>>>> CHECKPOINT 6 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>"); 
             break;
     }///!switch-case
 
@@ -265,6 +277,10 @@ int senml_cbor_serialize(const lwm2m_uri_t * uriP,
         if (baseUriLen >= URI_MAX_STRING_LEN -1) return 0;
         baseUriStr[baseUriLen++] = '/';
     }
+
+    LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>baseUri 1 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");    
+    lwm2m_printf("%.*s", baseUriLen, baseUriStr);
+    LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");    
 
     if (!baseUriLen || baseUriStr[baseUriLen - 1] != '/')
     {
