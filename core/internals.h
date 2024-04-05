@@ -378,7 +378,7 @@ int tlv_serialize(bool isResourceInstance, int size, lwm2m_data_t * dataP, uint8
 #ifdef LWM2M_SUPPORT_CBOR
 // defined in cbor.c
 int cbor_parse(lwm2m_uri_t * uriP, const uint8_t * buffer, size_t bufferLen, lwm2m_data_t ** dataP);
-int cbor_serialize(bool isResourceInstance, int size, lwm2m_data_t * dataP, uint8_t ** bufferP);
+int cbor_serialize(int size, lwm2m_data_t * dataP, uint8_t ** bufferP);
 #endif
 
 #ifdef LWM2M_SUPPORT_SENML_CBOR
@@ -460,6 +460,14 @@ int utils_textToInt(const uint8_t * buffer, int length, int64_t * dataP);
 int utils_textToUInt(const uint8_t * buffer, int length, uint64_t * dataP);
 int utils_textToFloat(const uint8_t * buffer, int length, double * dataP, bool allowExponential);
 int utils_textToObjLink(const uint8_t * buffer,
+                        int length,
+                        uint16_t * objectId,
+                        uint16_t * objectInstanceId);
+size_t utils_objLinkToOpaque(uint16_t objectId,
+                           uint16_t objectInstanceId,
+                           uint8_t * string,
+                           size_t length);
+int utils_opaqueToObjLink(const uint8_t * buffer,
                         int length,
                         uint16_t * objectId,
                         uint16_t * objectInstanceId);

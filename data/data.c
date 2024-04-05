@@ -37,8 +37,9 @@ static int prv_textSerialize(lwm2m_data_t * dataP,
         if (*bufferP == NULL) return 0;
         memcpy(*bufferP, dataP->value.asBuffer.buffer, dataP->value.asBuffer.length);
         return (int)dataP->value.asBuffer.length;
-
+    
     case LWM2M_TYPE_INTEGER:
+    case LWM2M_TYPE_TIME:
     {
         uint8_t intString[_PRV_STR_LENGTH];
 
@@ -94,25 +95,17 @@ static int prv_textSerialize(lwm2m_data_t * dataP,
     case LWM2M_TYPE_OBJECT_LINK:
     {
         char stringBuffer[11];
-        size_t length;
+        size_t length = 0;
         
-        length = utils_intToText(dataP->value.asObjLink.objectId, (uint8_t*)stringBuffer, 5);
+        length = utils_objLinkToText(dataP->value.asObjLink.objectId, dataP->value.asObjLink.objectInstanceId, (uint8_t*)stringBuffer, 11);
         if (length == 0) return -1;
 
-        stringBuffer[5] = ':';
-        res = length + 1;
-
-        length = utils_intToText(dataP->value.asObjLink.objectInstanceId, (uint8_t*)stringBuffer + res, 5);
-        if (length == 0) return -1;
-
-        res += length;
-
-        *bufferP = (uint8_t *)lwm2m_malloc(res);
+        *bufferP = (uint8_t *)lwm2m_malloc(length);
         if (*bufferP == NULL) return -1;
 
-        memcpy(*bufferP, stringBuffer, res);
+        memcpy(*bufferP, stringBuffer, length);
 
-        return res;
+        return (int)length;
     }
 
     case LWM2M_TYPE_OPAQUE:
@@ -369,6 +362,7 @@ int lwm2m_data_decode_int(const lwm2m_data_t * dataP,
     switch (dataP->type)
     {
     case LWM2M_TYPE_INTEGER:
+    case LWM2M_TYPE_TIME:
         *valueP = dataP->value.asInteger;
         result = 1;
         break;
@@ -675,12 +669,11 @@ int lwm2m_data_decode_objlink(const lwm2m_data_t * dataP,
                            uint16_t* objectId,
                            uint16_t* objectInstanceId)
 {
-    int result;
+    int result = 0;
 
     switch (dataP->type)
     {
         case LWM2M_TYPE_OBJECT_LINK:
-            if (dataP->value.asBuffer.length <= 0) return 0; /// here the length can be more than 1
             *objectId = dataP->value.asObjLink.objectId;
             *objectInstanceId = dataP->value.asObjLink.objectInstanceId;
             result = 1;
@@ -689,8 +682,11 @@ int lwm2m_data_decode_objlink(const lwm2m_data_t * dataP,
             if (dataP->value.asBuffer.length <= 0) return 0; /// here the length can be more than 1
             result = utils_textToObjLink(dataP->value.asBuffer.buffer, dataP->value.asBuffer.length, objectId, objectInstanceId);
             break;
+        case LWM2M_TYPE_OPAQUE:
+            if (dataP->value.asBuffer.length != 4) return 0;
+            result = utils_opaqueToObjLink(dataP->value.asBuffer.buffer, dataP->value.asBuffer.length, objectId, objectInstanceId);
+            break;
         default:
-            result = 0;
             break;
     }
     LOG_ARG("result: %d, value: objectId: %d objectInstanceId: %d", result, objectId, objectInstanceId);
@@ -709,6 +705,7 @@ void lwm2m_data_include(lwm2m_data_t * subDataP,
     case LWM2M_TYPE_STRING:
     case LWM2M_TYPE_OPAQUE:
     case LWM2M_TYPE_INTEGER:
+    case LWM2M_TYPE_TIME:
     case LWM2M_TYPE_UNSIGNED_INTEGER:
     case LWM2M_TYPE_FLOAT:
     case LWM2M_TYPE_BOOLEAN:
@@ -918,8 +915,17 @@ int lwm2m_data_serialize(lwm2m_uri_t * uriP,
 
 #ifdef LWM2M_SUPPORT_CBOR
     case LWM2M_CONTENT_CBOR:
-        LOG("CBOR cbor_serialize ");
-        return cbor_serialize(true, size, dataP, bufferP);
+        #ifndef LWM2M_VERSION_1_0
+        if (uriP != NULL && LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP))
+        {
+            if (dataP->type == LWM2M_TYPE_MULTIPLE_RESOURCE) {
+                size = dataP->value.asChildren.count;
+                dataP = dataP->value.asChildren.array;
+            }
+            if(size != 1) return -1;
+        }
+        #endif
+        return cbor_serialize(size, dataP, bufferP);
 #endif
 #ifdef LWM2M_SUPPORT_SENML_CBOR
     case LWM2M_CONTENT_SENML_CBOR:

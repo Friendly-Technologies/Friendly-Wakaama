@@ -433,6 +433,12 @@ void dump_tlv(FILE * stream,
             fprintf(stream, "%" PRId64, dataP[i].value.asInteger);
             fprintf(stream, "\r\n");
             break;
+        case LWM2M_TYPE_TIME:
+            fprintf(stream, "LWM2M_TYPE_TIME: ");
+            print_indent(stream, indent + 1);
+            fprintf(stream, "%" PRId64, dataP[i].value.asInteger);
+            fprintf(stream, "\r\n");
+            break;
         case LWM2M_TYPE_UNSIGNED_INTEGER:
             fprintf(stream, "LWM2M_TYPE_UNSIGNED_INTEGER: ");
             print_indent(stream, indent + 1);

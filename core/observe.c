@@ -208,6 +208,7 @@ uint8_t observe_handleRequest(lwm2m_context_t * contextP,
             switch (valueP->type)
             {
             case LWM2M_TYPE_INTEGER:
+            case LWM2M_TYPE_TIME:
                 if (1 != lwm2m_data_decode_int(valueP, &(watcherP->lastValue.asInteger))) return COAP_500_INTERNAL_SERVER_ERROR;
                 break;
             case LWM2M_TYPE_UNSIGNED_INTEGER:
@@ -555,6 +556,7 @@ void observe_step(lwm2m_context_t * contextP,
             switch (dataType)
             {
             case LWM2M_TYPE_INTEGER:
+            case LWM2M_TYPE_TIME:
                 if (1 != lwm2m_data_decode_int(valueP, &integerValue))
                 {
                     lwm2m_data_free(size, dataP);
@@ -611,6 +613,7 @@ void observe_step(lwm2m_context_t * contextP,
                             switch (dataType)
                             {
                             case LWM2M_TYPE_INTEGER:
+                            case LWM2M_TYPE_TIME:
                                 if ((integerValue < watcherP->parameters->lessThan
                                   && watcherP->lastValue.asInteger > watcherP->parameters->lessThan)
                                  || (integerValue > watcherP->parameters->lessThan
@@ -651,6 +654,7 @@ void observe_step(lwm2m_context_t * contextP,
                             switch (dataType)
                             {
                             case LWM2M_TYPE_INTEGER:
+                            case LWM2M_TYPE_TIME:
                                 if ((integerValue < watcherP->parameters->greaterThan
                                   && watcherP->lastValue.asInteger > watcherP->parameters->greaterThan)
                                  || (integerValue > watcherP->parameters->greaterThan
@@ -691,6 +695,7 @@ void observe_step(lwm2m_context_t * contextP,
                             switch (dataType)
                             {
                             case LWM2M_TYPE_INTEGER:
+                            case LWM2M_TYPE_TIME:
                             {
                                 int64_t diff;
 
@@ -817,6 +822,7 @@ void observe_step(lwm2m_context_t * contextP,
                     switch (dataType)
                     {
                     case LWM2M_TYPE_INTEGER:
+                    case LWM2M_TYPE_TIME:
                         watcherP->lastValue.asInteger = integerValue;
                         break;
                     case LWM2M_TYPE_UNSIGNED_INTEGER:

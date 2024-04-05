@@ -56,8 +56,8 @@ int lwm2m_send_operation(lwm2m_context_t * contextP, lwm2m_uri_t * uriP) {
     }
 
     result = create_payload(contextP, uriP, &payload, &payload_length);
-    LOG_ARG("Created payload for send, result: %u, payload length: %u", result, payload_length);
     if (result != COAP_205_CONTENT) {
+        LOG_ARG("Error while creating payload: %d", result);
         return result;
     }
 

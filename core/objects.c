@@ -168,6 +168,7 @@ uint8_t object_checkReadable(lwm2m_context_t * contextP,
             switch (valueP->type)
             {
                 case LWM2M_TYPE_INTEGER:
+                case LWM2M_TYPE_TIME:
                 case LWM2M_TYPE_UNSIGNED_INTEGER:
                 case LWM2M_TYPE_FLOAT:
                     break;
@@ -294,11 +295,13 @@ uint8_t object_read(lwm2m_context_t * contextP,
     {
         if (acceptNum > 0)
         {
+            bool isSingleResource = (LWM2M_URI_IS_SET_RESOURCE(uriP) && dataP->type != LWM2M_TYPE_MULTIPLE_RESOURCE) ||
+                                    LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP);
             result = utils_getResponseFormat(acceptNum,
                                              accept,
                                              size,
                                              dataP,
-                                             LWM2M_URI_IS_SET_RESOURCE(uriP),
+                                             isSingleResource,
                                              formatP);
         }
         if (result == COAP_205_CONTENT)
