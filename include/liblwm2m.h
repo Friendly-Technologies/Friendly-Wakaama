@@ -336,6 +336,7 @@ typedef enum
     LWM2M_TYPE_UNSIGNED_INTEGER,
     LWM2M_TYPE_FLOAT,
     LWM2M_TYPE_BOOLEAN,
+    LWM2M_TYPE_TIME,
 
     LWM2M_TYPE_OBJECT_LINK,
     LWM2M_TYPE_CORE_LINK
@@ -378,6 +379,8 @@ typedef enum
     LWM2M_CONTENT_OPAQUE     = 42,
     LWM2M_CONTENT_TLV_OLD    = 1542,     // Keep old value for backward-compatibility
     LWM2M_CONTENT_TLV        = 11542,
+    LWM2M_CONTENT_CBOR       = 60,
+    LWM2M_CONTENT_SENML_CBOR = 112,
     LWM2M_CONTENT_JSON_OLD   = 1543,     // Keep old value for backward-compatibility
     LWM2M_CONTENT_JSON       = 11543,
     LWM2M_CONTENT_SENML_JSON = 110
@@ -399,7 +402,10 @@ void lwm2m_data_encode_float(double value, lwm2m_data_t * dataP);
 int lwm2m_data_decode_float(const lwm2m_data_t * dataP, double * valueP);
 void lwm2m_data_encode_bool(bool value, lwm2m_data_t * dataP);
 int lwm2m_data_decode_bool(const lwm2m_data_t * dataP, bool * valueP);
+int lwm2m_data_decode_time(const lwm2m_data_t * dataP, int64_t * valueP);
+void lwm2m_data_encode_time(uint64_t value, lwm2m_data_t * dataP);
 void lwm2m_data_encode_objlink(uint16_t objectId, uint16_t objectInstanceId, lwm2m_data_t * dataP);
+int lwm2m_data_decode_objlink(const lwm2m_data_t * dataP, uint16_t* objectId, uint16_t* objectInstanceId);
 void lwm2m_data_encode_corelink(const char * corelink, lwm2m_data_t * dataP);
 void lwm2m_data_encode_instances(lwm2m_data_t * subDataP, size_t count, lwm2m_data_t * dataP);
 void lwm2m_data_include(lwm2m_data_t * subDataP, size_t count, lwm2m_data_t * dataP);
@@ -569,6 +575,7 @@ struct _lwm2m_server_
     time_t                  lifetime;     // lifetime of the registration in sec or 0 if default value (86400 sec), also used as hold off time for bootstrap servers
     time_t                  registration; // date of the last registration in sec or end of client hold off time for bootstrap servers or end of hold off time for registration holds.
     lwm2m_binding_t         binding;      // client connection mode with this server
+    bool                    muteSend;     // true if the server is in mute mode
     void *                  sessionH;
     lwm2m_status_t          status;
     char *                  location;
@@ -829,10 +836,15 @@ int lwm2m_update_registration(lwm2m_context_t * contextP, uint16_t shortServerID
 // send deregistration to all servers connected to client
 void lwm2m_deregister(lwm2m_context_t * context);
 void lwm2m_resource_value_changed(lwm2m_context_t * contextP, lwm2m_uri_t * uriP);
-
 // Should be called when changes are made to the server life time.
 void lwm2m_update_server_lifetime(lwm2m_context_t * contextP, uint16_t serverId, time_t lifetime);
-#endif
+
+#ifdef LWM2M_SUPPORT_SENML_JSON
+// The "Send" operation is used by the LwM2M Client to send data to the LwM2M Server without explicit request by that Server
+int lwm2m_send_operation(lwm2m_context_t * contextP, lwm2m_uri_t * uriP);
+void lwm2m_update_server_mute(lwm2m_context_t * contextP, uint16_t serverId, bool muteSend);
+#endif // LWM2M_SUPPORT_SENML_JSON
+#endif // LWM2M_CLIENT_MODE
 
 #ifdef LWM2M_SERVER_MODE
 // Clients registration/deregistration monitoring API.

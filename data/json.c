@@ -740,6 +740,7 @@ static int prv_serializeValue(lwm2m_data_t * tlvP,
         break;
 
     case LWM2M_TYPE_INTEGER:
+    case LWM2M_TYPE_TIME:
     {
         int64_t value;
 

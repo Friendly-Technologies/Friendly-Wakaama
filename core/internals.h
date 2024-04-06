@@ -117,9 +117,11 @@
 ((M) == LWM2M_CONTENT_LINK ? "LWM2M_CONTENT_LINK" :              \
 ((M) == LWM2M_CONTENT_OPAQUE ? "LWM2M_CONTENT_OPAQUE" :          \
 ((M) == LWM2M_CONTENT_TLV ? "LWM2M_CONTENT_TLV" :                \
+((M) == LWM2M_CONTENT_CBOR ? "LWM2M_CONTENT_CBOR" :              \
+((M) == LWM2M_CONTENT_SENML_CBOR ? "LWM2M_CONTENT_SENML_CBOR" :  \
 ((M) == LWM2M_CONTENT_JSON ? "LWM2M_CONTENT_JSON" :              \
 ((M) == LWM2M_CONTENT_SENML_JSON ? "LWM2M_CONTENT_SENML_JSON" :  \
-"Unknown"))))))
+"Unknown"))))))))
 #define STR_STATE(S)                                \
 ((S) == STATE_INITIAL ? "STATE_INITIAL" :      \
 ((S) == STATE_BOOTSTRAP_REQUIRED ? "STATE_BOOTSTRAP_REQUIRED" :      \
@@ -158,6 +160,8 @@
 #define URI_REGISTRATION_SEGMENT_LEN    2
 #define URI_BOOTSTRAP_SEGMENT           "bs"
 #define URI_BOOTSTRAP_SEGMENT_LEN       2
+#define URI_SEND_SEGMENT        "dp"
+#define URI_SEND_SEGMENT_LEN    2
 
 #define QUERY_STARTER        "?"
 #define QUERY_NAME           "ep="
@@ -371,6 +375,12 @@ int tlv_parse(const uint8_t * buffer, size_t bufferLen, lwm2m_data_t ** dataP);
 int tlv_serialize(bool isResourceInstance, int size, lwm2m_data_t * dataP, uint8_t ** bufferP);
 #endif
 
+#ifdef LWM2M_SUPPORT_CBOR
+// defined in cbor.c
+int cbor_parse(lwm2m_uri_t * uriP, const uint8_t * buffer, size_t bufferLen, lwm2m_data_t ** dataP);
+int cbor_serialize(int size, lwm2m_data_t * dataP, uint8_t ** bufferP);
+#endif
+
 // defined in json.c
 #ifdef LWM2M_SUPPORT_JSON
 int json_parse(lwm2m_uri_t * uriP, const uint8_t * buffer, size_t bufferLen, lwm2m_data_t ** dataP);
@@ -444,6 +454,14 @@ int utils_textToInt(const uint8_t * buffer, int length, int64_t * dataP);
 int utils_textToUInt(const uint8_t * buffer, int length, uint64_t * dataP);
 int utils_textToFloat(const uint8_t * buffer, int length, double * dataP, bool allowExponential);
 int utils_textToObjLink(const uint8_t * buffer,
+                        int length,
+                        uint16_t * objectId,
+                        uint16_t * objectInstanceId);
+size_t utils_objLinkToOpaque(uint16_t objectId,
+                           uint16_t objectInstanceId,
+                           uint8_t * string,
+                           size_t length);
+int utils_opaqueToObjLink(const uint8_t * buffer,
                         int length,
                         uint16_t * objectId,
                         uint16_t * objectInstanceId);

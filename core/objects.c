@@ -68,11 +68,12 @@ static int prv_getMandatoryInfo(lwm2m_context_t *contextP,
     int size;
     int64_t value;
 
-    size = 2;
+    size = 3;
     dataP = lwm2m_data_new(size);
     if (dataP == NULL) return -1;
     dataP[0].id = LWM2M_SERVER_LIFETIME_ID;
     dataP[1].id = LWM2M_SERVER_BINDING_ID;
+    dataP[2].id = LWM2M_SERVER_MUTE_SEND_ID;
 
     if (objectP->readFunc(contextP, NULL, instanceID, &size, &dataP, objectP) != COAP_205_CONTENT)
     {
@@ -95,6 +96,15 @@ static int prv_getMandatoryInfo(lwm2m_context_t *contextP,
     else
     {
         targetP->binding = BINDING_UNKNOWN;
+    }
+
+    if (dataP[2].type == LWM2M_TYPE_BOOLEAN)
+    {
+        targetP->muteSend = dataP[2].value.asBoolean;
+    }
+    else
+    {
+        targetP->muteSend = true;
     }
 
     lwm2m_data_free(size, dataP);
@@ -158,6 +168,7 @@ uint8_t object_checkReadable(lwm2m_context_t * contextP,
             switch (valueP->type)
             {
                 case LWM2M_TYPE_INTEGER:
+                case LWM2M_TYPE_TIME:
                 case LWM2M_TYPE_UNSIGNED_INTEGER:
                 case LWM2M_TYPE_FLOAT:
                     break;
@@ -284,11 +295,13 @@ uint8_t object_read(lwm2m_context_t * contextP,
     {
         if (acceptNum > 0)
         {
+            bool isSingleResource = (LWM2M_URI_IS_SET_RESOURCE(uriP) && dataP->type != LWM2M_TYPE_MULTIPLE_RESOURCE) ||
+                                    LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP);
             result = utils_getResponseFormat(acceptNum,
                                              accept,
                                              size,
                                              dataP,
-                                             LWM2M_URI_IS_SET_RESOURCE(uriP),
+                                             isSingleResource,
                                              formatP);
         }
         if (result == COAP_205_CONTENT)
@@ -395,6 +408,14 @@ uint8_t object_write(lwm2m_context_t * contextP,
         {
             result = COAP_406_NOT_ACCEPTABLE;
         }
+    }
+    if (result == NO_ERROR
+     && dataP[0].type == LWM2M_TYPE_OBJECT_INSTANCE)
+    {
+        lwm2m_data_t *tmpDataP = dataP;
+        size = tmpDataP->value.asChildren.count;
+        dataP = tmpDataP->value.asChildren.array;
+        lwm2m_free(tmpDataP);
     }
 #ifndef LWM2M_VERSION_1_0
     if (result == NO_ERROR

@@ -565,6 +565,36 @@ size_t utils_objLinkToText(uint16_t objectId,
     return head + res;
 }
 
+size_t utils_objLinkToOpaque(uint16_t objectId,
+                           uint16_t objectInstanceId,
+                           uint8_t * buffer,
+                           size_t length) {
+    uint8_t objLinkSize = 4;
+    uint8_t idSize = 2;
+
+    if (length < objLinkSize) return 0;
+
+    utils_copyValue(buffer, &objectId, idSize);
+    utils_copyValue(buffer + idSize, &objectInstanceId, idSize);
+
+    return objLinkSize;
+}
+
+int utils_opaqueToObjLink(const uint8_t * buffer,
+                        int length,
+                        uint16_t * objectId,
+                        uint16_t * objectInstanceId) {
+    uint8_t objLinkSize = 4;
+    uint8_t idSize = 2;
+
+    if (length < objLinkSize) return 0;
+
+    utils_copyValue(objectId, buffer, idSize);
+    utils_copyValue(objectInstanceId, buffer + idSize, idSize);
+
+    return 1;
+}
+
 lwm2m_version_t utils_stringToVersion(uint8_t * buffer,
                                       size_t length)
 {
@@ -702,6 +732,12 @@ lwm2m_media_type_t utils_convertMediaType(coap_content_type_t type)
         result = LWM2M_CONTENT_JSON_OLD;
         break;
 #endif
+    case LWM2M_CONTENT_CBOR:
+        result = LWM2M_CONTENT_CBOR;
+        break;
+    case LWM2M_CONTENT_SENML_CBOR:
+        result = LWM2M_CONTENT_SENML_CBOR;
+        break;
     case LWM2M_CONTENT_JSON:
         result = LWM2M_CONTENT_JSON;
         break;
@@ -734,7 +770,6 @@ uint8_t utils_getResponseFormat(uint8_t accept_num,
         {
         case LWM2M_TYPE_OBJECT:
         case LWM2M_TYPE_OBJECT_INSTANCE:
-        case LWM2M_TYPE_MULTIPLE_RESOURCE:
             singular = false;
             break;
         default:
@@ -779,6 +814,22 @@ uint8_t utils_getResponseFormat(uint8_t accept_num,
 #endif
             case LWM2M_CONTENT_TLV:
                 *format = LWM2M_CONTENT_TLV;
+                found = true;
+                break;
+#endif
+
+#ifdef LWM2M_SUPPORT_CBOR
+            case LWM2M_CONTENT_CBOR:
+                if (singular)
+                {
+                    *format = LWM2M_CONTENT_CBOR;
+                    found = true;
+                }
+                break;
+#endif
+#ifdef LWM2M_SUPPORT_SENML_CBOR
+            case LWM2M_CONTENT_SENML_CBOR:
+                *format = LWM2M_CONTENT_SENML_CBOR;
                 found = true;
                 break;
 #endif

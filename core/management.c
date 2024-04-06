@@ -213,12 +213,14 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
 
                 result = object_readData(contextP, serverP, uriP, &size, &dataP);
                 if (COAP_205_CONTENT == result)
-                {
+                {   
+                    bool isSingleResource = (LWM2M_URI_IS_SET_RESOURCE(uriP) && dataP->type != LWM2M_TYPE_MULTIPLE_RESOURCE) ||
+                                            LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP);
                     result = utils_getResponseFormat(message->accept_num,
                                                      message->accept,
                                                      size,
                                                      dataP,
-                                                     LWM2M_URI_IS_SET_RESOURCE(uriP),
+                                                     isSingleResource,
                                                      &format);
                     if (COAP_205_CONTENT == result)
                     {
@@ -327,8 +329,7 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
                     lwm2m_update_registration(contextP, 0, false, true);
                 }
             }
-            else if (!IS_OPTION(message, COAP_OPTION_CONTENT_TYPE)
-                  || format == LWM2M_CONTENT_TEXT)
+            else if (!IS_OPTION(message, COAP_OPTION_CONTENT_TYPE))
             {
                 if (!LWM2M_URI_IS_SET_RESOURCE(uriP)
 #ifndef LWM2M_VERSION_1_0
