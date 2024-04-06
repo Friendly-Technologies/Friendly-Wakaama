@@ -34,7 +34,7 @@ static uint8_t create_payload(lwm2m_context_t * contextP, lwm2m_uri_t * uriP, ui
     return result;
 }
 
-bool is_server_valid_for_send(lwm2m_server_t * serverP) {
+static bool is_server_valid_for_send(lwm2m_server_t * serverP) {
     if (serverP->status != STATE_REGISTERED && serverP->status != STATE_REG_UPDATE_NEEDED &&
         serverP->status != STATE_REG_LT_UPDATE_NEEDED && serverP->status != STATE_REG_OBJ_UPDATE_NEEDED &&
         serverP->status != STATE_REG_FULL_UPDATE_NEEDED && serverP->status != STATE_REG_UPDATE_PENDING) {
