@@ -331,9 +331,8 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
         return COAP_400_BAD_REQUEST;
     }
     LOG_ARG("Operation: %d", operation);
-
-    // TODO: check ACL
-    if (!acl_is_operation_authorized(serverP, uriP, operation))
+    
+    if (!ac_is_operation_authorized(contextP, serverP, uriP, operation))
     {
         return COAP_401_UNAUTHORIZED;
     }

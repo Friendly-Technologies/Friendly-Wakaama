@@ -180,7 +180,7 @@ bool lwm2m_session_is_equal(void * session1, void * session2, void * userData);
  */
 #define LWM2M_SECURITY_OBJECT_ID            0
 #define LWM2M_SERVER_OBJECT_ID              1
-#define LWM2M_ACL_OBJECT_ID                 2
+#define LWM2M_AC_OBJECT_ID                  2
 #define LWM2M_DEVICE_OBJECT_ID              3
 #define LWM2M_CONN_MONITOR_OBJECT_ID        4
 #define LWM2M_FIRMWARE_UPDATE_OBJECT_ID     5
@@ -232,6 +232,23 @@ bool lwm2m_session_is_equal(void * session1, void * session2, void * userData);
 #define LWM2M_SERVER_TRIGGER_ID              21
 #define LWM2M_SERVER_PREFERRED_TRANSPORT_ID  22
 #define LWM2M_SERVER_MUTE_SEND_ID            23
+
+/*
+ * Resource IDs for the LWM2M Access Control
+ */
+#define LWM2M_AC_RES_OBJECT_ID               0
+#define LWM2M_AC_RES_INSTANCE_ID             1
+#define LWM2M_AC_RES_ACL_ID                  2
+#define LWM2M_AC_RES_OWNER_ID                3
+
+#define LWM2M_AC_ACL_DEFAULT_ID              0
+#define LWM2M_AC_ACL_MAX_VALUE               32
+#define LWM2M_AC_READ_OP                     (1 << 0)
+#define LWM2M_AC_WRITE_OP                    (1 << 1)
+#define LWM2M_AC_EXECUTE_OP                  (1 << 2)
+#define LWM2M_AC_DELETE_OP                   (1 << 3)
+#define LWM2M_AC_CREATE_OP                   (1 << 4)
+
 
 #define LWM2M_SECURITY_MODE_PRE_SHARED_KEY  0
 #define LWM2M_SECURITY_MODE_RAW_PUBLIC_KEY  1

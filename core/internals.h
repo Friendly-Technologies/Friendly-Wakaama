@@ -492,6 +492,6 @@ lwm2m_client_t * utils_findClient(lwm2m_context_t * contextP, void * fromSession
 #endif
 
 // defined in objects/access_control.c
-bool acl_is_operation_authorized(lwm2m_server_t * serverP, lwm2m_uri_t *uriP, lwm2m_obj_operation_t operation);
+bool ac_is_operation_authorized(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t *uriP, lwm2m_obj_operation_t operation);
 
 #endif
