@@ -97,21 +97,21 @@ int senml_cbor_serializeData(const lwm2m_data_t * tlvP,
                     return -1;
                 }
                 
-                err = cbor_encoder_create_map(encoder, encoder, 3);
+                err = cbor_encoder_create_map(encoder, encoder, 2);
                 if (err != CborNoError) 
                 {
                     LOG_ARG("cbor_encoder_create_map FAILED err=%d", err);
                     return -1;
                 }
 
-                err = cbor_encode_int(encoder, -2); ///Base name code in SENML-CBOR == (-2)
+                err = cbor_encode_int(encoder, 0); ///Base name code in SENML-CBOR == (-2)
                 if (err != CborNoError) 
                 {
                     LOG_ARG("cbor_encode_int FAILED err=%d", err);
                     return -1;
                 }
 
-                baseUriStr[baseUriLen++] = '0'; /// for the MULTIPLE objects we need to add 0 to the URI
+                // baseUriStr[baseUriLen++] = '0'; /// for the MULTIPLE objects we need to add 0 to the URI
 
                 err = cbor_encode_text_string(encoder, (char *)baseUriStr, baseUriLen);
                 if (err != CborNoError) 
@@ -138,19 +138,7 @@ int senml_cbor_serializeData(const lwm2m_data_t * tlvP,
                     }
                 }
 
-                err = cbor_encode_int(encoder, 0); /// Name code in SENML-CBOR == (0)
-                if (err != CborNoError) 
-                {
-                    LOG_ARG("cbor_encode_int FAILED err=%d", err);
-                    return -1;
-                }
-
-                err = cbor_encode_int(encoder, tlvP->id); // Assuming resource ID is used as key
-                if (err != CborNoError) 
-                {
-                    LOG_ARG("cbor_encode_int FAILED err=%d", err);
-                    return -1;
-                }
+                
             }
 
             if (tlvP->type != LWM2M_TYPE_UNDEFINED)
@@ -197,7 +185,7 @@ int senml_cbor_serializeData(const lwm2m_data_t * tlvP,
                 return -1;
             }
 
-            err = cbor_encode_int(encoder, -2); ///Base name code in SENML-CBOR == (-2)
+            err = cbor_encode_int(encoder, 0); ///Base name code in SENML-CBOR == (-2)
             if (err != CborNoError) 
             {
                 LOG_ARG("cbor_encode_int FAILED err=%d", err);
