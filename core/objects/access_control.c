@@ -199,6 +199,8 @@ bool ac_is_operation_authorized(lwm2m_context_t * contextP, lwm2m_server_t * ser
     // Validate input parameters
     if (!serverP || !uriP || uriP->objectId == LWM2M_MAX_ID || operation == LWM2M_OBJ_OP_UNKNOWN) return false;
 
+    // This kind of Access Control Object Instance associated with a certain Object, MUST only be created or updated during a Bootstrap Phase.
+    if (operation == LWM2M_OBJ_OP_CREATE && uriP->objectId == LWM2M_AC_OBJECT_ID) return false;
     // Discover operation is always allowed
     if (operation == LWM2M_OBJ_OP_DISCOVER) return true;
 
