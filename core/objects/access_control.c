@@ -36,7 +36,7 @@ static lwm2m_data_t * prv_get_ac_instance_for_target(lwm2m_data_t *acInstances, 
     for (i = 0; i < acInstCount; i++) {
         uint16_t tmpObjId, tmpInstId;
         if (prv_get_ac_target_id(acInstances + i, &tmpObjId, &tmpInstId) && tmpObjId == objId && tmpInstId == instId) {
-            return acInstances[i].value.asChildren.array;
+            return acInstances + i;
         }
     }
     return NULL;
@@ -160,7 +160,8 @@ static bool prv_is_object_operation_authorized(lwm2m_data_t *acInstances, int ac
     } else if (operation == LWM2M_OBJ_OP_READ || operation == LWM2M_OBJ_OP_WRITE_ATTRIBUTES || operation == LWM2M_OBJ_OP_OBSERVE) {
         for (int i = 0; i < acInstCount; i++) {
             uint16_t tmpObjId, tmpInstId;
-            if (!prv_get_ac_target_id(acInstances + i, &tmpObjId, &tmpInstId) || tmpObjId != objId) continue;
+            // Find the Access Control Object Instance for the target object instance
+            if (!prv_get_ac_target_id(acInstances + i, &tmpObjId, &tmpInstId) || tmpObjId != objId || tmpInstId == LWM2M_MAX_ID) continue;
             if (prv_is_server_has_permission(acInstances + i, serverP, operation)) return true;
         }
     }
@@ -172,6 +173,14 @@ static bool prv_is_instance_operation_authorized(lwm2m_data_t *acInstances, int 
     if (acForTarget == NULL) return false;
     return prv_is_server_has_permission(acForTarget, serverP, operation);
     return true;
+}
+
+/**
+ * @brief Check if Access Control Object is enabled
+ */
+bool ac_is_enabled(lwm2m_context_t * contextP) {
+    lwm2m_object_t * acObjP = (lwm2m_object_t *)LWM2M_LIST_FIND(contextP->objectList, LWM2M_AC_OBJECT_ID);
+    return acObjP != NULL && acObjP->instanceList != NULL;
 }
 
 /**
@@ -196,23 +205,64 @@ bool ac_is_operation_authorized(lwm2m_context_t * contextP, lwm2m_server_t * ser
     int acInstCount = 0;
     bool result = false;
 
+    LOG_ARG("Checking if operation %d is authorized for %d/%d/%d/%d", operation, uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId);
+
     // Validate input parameters
-    if (!serverP || !uriP || uriP->objectId == LWM2M_MAX_ID || operation == LWM2M_OBJ_OP_UNKNOWN) return false;
+    if (!contextP || !serverP || !uriP || uriP->objectId == LWM2M_MAX_ID || operation == LWM2M_OBJ_OP_UNKNOWN) return false;
+    // If Access Control Object is not enabled, then the operation is always allowed
+    if (!ac_is_enabled(contextP)) return true;
 
     // This kind of Access Control Object Instance associated with a certain Object, MUST only be created or updated during a Bootstrap Phase.
+    // The Access Control Object Instance association for a certain Object Instance can not be careated by the LwM2M Server.
     if (operation == LWM2M_OBJ_OP_CREATE && uriP->objectId == LWM2M_AC_OBJECT_ID) return false;
     // Discover operation is always allowed
     if (operation == LWM2M_OBJ_OP_DISCOVER) return true;
 
     // Get Access Control Object instances
     object_readData(contextP, serverP, &aclUri, &acInstCount, &acInstances);
-    // If there is no Access Control Object or its instances, then ACL is not enabled
-    if (acInstCount == 0) return true;
+    if (acInstCount == 0) return false;
     
     // Check if the operation is authorized
-    if (!LWM2M_URI_IS_SET_INSTANCE(uriP)) result = prv_is_object_operation_authorized(acInstances, acInstCount, serverP, uriP->instanceId, operation);
+    if (!LWM2M_URI_IS_SET_INSTANCE(uriP)) result = prv_is_object_operation_authorized(acInstances, acInstCount, serverP, uriP->objectId, operation);
     else result = prv_is_instance_operation_authorized(acInstances, acInstCount, serverP, uriP, operation);
     lwm2m_data_free(acInstCount, acInstances);
+
+    LOG_ARG("Operation %d is %s for %d/%d/%d/%d", operation, result ? "authorized" : "not authorized", uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId);
+
+    return result;
+}
+
+int ac_create_instance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP) {
+    lwm2m_object_t * targetP;
+    uint16_t objInstId;
+    lwm2m_data_t resourcesData[LWM2M_AC_MANDATORY_RES_CNT];
+    uint8_t result;
+
+    LOG_ARG("Creating Access Control Object Instance for %d/%d/%d/%d", uriP->objectId, uriP->instanceId);
+
+    // Validate input parameters
+    if (!contextP || !serverP || !uriP) return COAP_400_BAD_REQUEST;
+
+    // Getting the target object
+    targetP = (lwm2m_object_t *)LWM2M_LIST_FIND(contextP->objectList, LWM2M_AC_OBJECT_ID);
+    if (NULL == targetP) return COAP_404_NOT_FOUND;
+    if (NULL == targetP->createFunc) return COAP_405_METHOD_NOT_ALLOWED;
+
+    // Prepare the Access Control Object Instance data
+    resourcesData[0].id = LWM2M_AC_RES_OBJECT_ID;
+    resourcesData[0].type = LWM2M_TYPE_INTEGER;
+    resourcesData[0].value.asInteger = uriP->objectId;
+    resourcesData[1].id = LWM2M_AC_RES_INSTANCE_ID;
+    resourcesData[1].type = LWM2M_TYPE_INTEGER;
+    resourcesData[1].value.asInteger = uriP->instanceId;
+    resourcesData[2].id = LWM2M_AC_RES_OWNER_ID;
+    resourcesData[2].type = LWM2M_TYPE_INTEGER;
+    resourcesData[2].value.asInteger = serverP->shortID;
+
+    objInstId = lwm2m_list_newId(targetP->instanceList);
+    result = targetP->createFunc(contextP, NULL, objInstId, LWM2M_AC_MANDATORY_RES_CNT, resourcesData, targetP);
+
+    LOG_ARG("Result of creating Access Control Object Instance for %d/%d/%d/%d is %d", uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId, result);
 
     return result;
 }

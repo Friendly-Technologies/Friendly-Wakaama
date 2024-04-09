@@ -332,7 +332,7 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
     }
     LOG_ARG("Operation: %d", operation);
     
-    if (!ac_is_operation_authorized(contextP, serverP, uriP, operation))
+    if (ac_is_enabled(contextP) && !ac_is_operation_authorized(contextP, serverP, uriP, operation))
     {
         return COAP_401_UNAUTHORIZED;
     }
@@ -387,8 +387,15 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
             result = COAP_500_INTERNAL_SERVER_ERROR;
             break;
         }
-        coap_set_header_location_path(response, location_path);
 
+        if (ac_is_enabled(contextP)) {
+            result = ac_create_instance(contextP, serverP, uriP);
+            if (result != COAP_201_CREATED) {
+                object_delete(contextP, serverP, uriP);
+            }
+        }
+
+        coap_set_header_location_path(response, location_path);
         lwm2m_update_registration(contextP, 0, false, true);
         break;
     }

@@ -243,6 +243,7 @@ bool lwm2m_session_is_equal(void * session1, void * session2, void * userData);
 
 #define LWM2M_AC_ACL_DEFAULT_ID              0
 #define LWM2M_AC_ACL_MAX_VALUE               32
+#define LWM2M_AC_MANDATORY_RES_CNT           3
 #define LWM2M_AC_READ_OP                     (1 << 0)
 #define LWM2M_AC_WRITE_OP                    (1 << 1)
 #define LWM2M_AC_EXECUTE_OP                  (1 << 2)
