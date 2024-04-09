@@ -403,6 +403,7 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
         result = object_delete(contextP, serverP, uriP);
         if (result == COAP_202_DELETED)
         {
+            if (ac_is_enabled(contextP)) ac_delete_instance(contextP, serverP, uriP);
             lwm2m_update_registration(contextP, 0, false, true);
         }
         break;
