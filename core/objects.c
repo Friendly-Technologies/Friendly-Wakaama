@@ -181,6 +181,47 @@ uint8_t object_checkReadable(lwm2m_context_t * contextP,
     return result;
 }
 
+static uint8_t prv_object_get_instances_for_read(lwm2m_context_t * contextP,
+                                          lwm2m_server_t * serverP, 
+                                          lwm2m_object_t * targetP,
+                                          int * sizeP,
+                                          lwm2m_list_t ** instanceP) {
+    *instanceP = NULL;
+    *sizeP = 0;
+
+    // In bootstrap mode, the bootstrap server can read all object instances,
+    // also core has the same ability, otherwise, the server can read only those
+    // instances of the object for which it has rights. 
+    if (contextP->state != STATE_BOOTSTRAPPING && serverP != NULL && ac_is_enabled(contextP))
+    {
+        lwm2m_list_t * tmpListP = ac_get_instances_with_support_operation(contextP, serverP, targetP->objID, LWM2M_OBJ_OP_READ);
+        *instanceP = tmpListP;
+        while (tmpListP != NULL)
+        {
+            (*sizeP)++;
+            tmpListP = tmpListP->next;
+        }
+
+    } else {
+        lwm2m_list_t * tmpListP = targetP->instanceList;
+        while (tmpListP != NULL) {
+            lwm2m_list_t *tmpNodeP = (lwm2m_list_t *)lwm2m_malloc(sizeof(lwm2m_list_t));
+            if (tmpNodeP == NULL) {
+                LWM2M_LIST_FREE(*instanceP);
+                *instanceP = NULL;
+                return COAP_500_INTERNAL_SERVER_ERROR;
+            }
+            tmpNodeP->id = tmpListP->id;
+            tmpNodeP->next = NULL;
+            *instanceP = (lwm2m_list_t *)LWM2M_LIST_ADD(*instanceP, tmpNodeP);
+            (*sizeP)++;
+            tmpListP = tmpListP->next;
+        }
+    }
+
+    return COAP_205_CONTENT;
+}
+
 uint8_t object_readData(lwm2m_context_t * contextP,
                         lwm2m_server_t *serverP, 
                         lwm2m_uri_t * uriP,
@@ -230,37 +271,38 @@ uint8_t object_readData(lwm2m_context_t * contextP,
     else
     {
         // multiple object instances read
-        lwm2m_list_t * instanceP;
+        lwm2m_list_t * instanceP = NULL;
         int i;
-
+        
         result = COAP_205_CONTENT;
-
         *sizeP = 0;
-        for (instanceP = targetP->instanceList; instanceP != NULL ; instanceP = instanceP->next)
-        {
-            (*sizeP)++;
-        }
+        *dataP = NULL;
 
-        if (*sizeP == 0)
+        result = prv_object_get_instances_for_read(contextP, serverP, targetP, sizeP, &instanceP);
+        if (*sizeP == 0 || result != COAP_205_CONTENT)
         {
             *dataP = NULL;
         }
         else
         {
+            lwm2m_list_t * tmpListP = instanceP;
             *dataP = lwm2m_data_new(*sizeP);
-            if (*dataP == NULL) return COAP_500_INTERNAL_SERVER_ERROR;
+            if (*dataP == NULL) {
+                LWM2M_LIST_FREE(instanceP);
+                return COAP_500_INTERNAL_SERVER_ERROR;
+            }
 
-            instanceP = targetP->instanceList;
             i = 0;
-            while (instanceP != NULL && result == COAP_205_CONTENT)
+            while (tmpListP != NULL && result == COAP_205_CONTENT)
             {
-                result = targetP->readFunc(contextP, serverP, instanceP->id, (int*)&((*dataP)[i].value.asChildren.count), &((*dataP)[i].value.asChildren.array), targetP);
+                result = targetP->readFunc(contextP, serverP, tmpListP->id, (int*)&((*dataP)[i].value.asChildren.count), &((*dataP)[i].value.asChildren.array), targetP);
                 (*dataP)[i].type = LWM2M_TYPE_OBJECT_INSTANCE;
-                (*dataP)[i].id = instanceP->id;
+                (*dataP)[i].id = tmpListP->id;
                 i++;
-                instanceP = instanceP->next;
+                tmpListP = tmpListP->next;
             }
         }
+        LWM2M_LIST_FREE(instanceP);
     }
 
     if (result != COAP_205_CONTENT)
