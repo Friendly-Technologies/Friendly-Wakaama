@@ -213,6 +213,47 @@ static bool prv_is_instance_operation_authorized(lwm2m_data_t *acInstances, int 
     return prv_is_server_has_permission(acForTarget, serverP, operation);
 }
 
+static lwm2m_list_t * prv_get_supported_ac_instances(lwm2m_data_t *acInstances, int acInstCount, lwm2m_server_t * serverP) {
+    lwm2m_list_t *objInstList = NULL;
+    lwm2m_data_t *acInstance = acInstances;
+    uint16_t aclOwner;
+
+    while (acInstance != (acInstances + acInstCount)) {
+        aclOwner = prv_get_ac_owner(acInstance);
+        if (aclOwner == serverP->shortID) {
+            lwm2m_list_t *tmpNodeP = (lwm2m_list_t *)lwm2m_malloc(sizeof(lwm2m_list_t));
+            tmpNodeP->id = acInstance->id;
+            tmpNodeP->next = NULL;
+            objInstList = (lwm2m_list_t *)LWM2M_LIST_ADD(objInstList, tmpNodeP);
+        }
+        acInstance++;
+    }
+
+    return objInstList;
+}
+
+static lwm2m_list_t * prv_get_supported_target_instances(lwm2m_data_t *acInstances, int acInstCount, lwm2m_server_t * serverP, uint16_t objId, lwm2m_obj_operation_t operation) {
+    lwm2m_list_t *objInstList = NULL;
+
+    // Fill the list of instances that support the operation
+    for (int i = 0; i < acInstCount; i++) {
+        uint16_t tmpObjId, tmpInstId;
+        // Find the Access Control Object Instance for the target object instance
+        if (!prv_get_ac_target_id(acInstances + i, &tmpObjId, &tmpInstId) || tmpObjId != objId || 
+            (operation == LWM2M_OBJ_OP_CREATE && tmpInstId != LWM2M_MAX_ID) ||
+            (operation != LWM2M_OBJ_OP_CREATE && tmpInstId == LWM2M_MAX_ID)) continue;
+        // Check if the server has permission for the operation and add the instance to the list
+        if (prv_is_server_has_permission(acInstances + i, serverP, operation)) {
+            lwm2m_list_t *tmpNodeP = (lwm2m_list_t *)lwm2m_malloc(sizeof(lwm2m_list_t));
+            tmpNodeP->id = tmpInstId;
+            tmpNodeP->next = NULL;
+            objInstList = (lwm2m_list_t *)LWM2M_LIST_ADD(objInstList, tmpNodeP);
+        }
+    }
+
+    return objInstList;
+}
+
 /**
  * @brief Check if Access Control Object is enabled
  */
@@ -390,36 +431,8 @@ lwm2m_list_t * ac_get_instances_with_support_operation(lwm2m_context_t * context
     if (acInstCount == 0) return NULL;
     
     // We have different logic for Access Control Object and other objects
-    if (objId == LWM2M_AC_OBJECT_ID) {
-        lwm2m_data_t *acInstance = acInstances;
-        uint16_t aclOwner;
-        while (acInstance != (acInstances + acInstCount)) {
-            aclOwner = prv_get_ac_owner(acInstance);
-            if (aclOwner == serverP->shortID) {
-                lwm2m_list_t *tmpNodeP = (lwm2m_list_t *)lwm2m_malloc(sizeof(lwm2m_list_t));
-                tmpNodeP->id = acInstance->id;
-                tmpNodeP->next = NULL;
-                objInstList = (lwm2m_list_t *)LWM2M_LIST_ADD(objInstList, tmpNodeP);
-            }
-            acInstance++;
-        }
-    } else {
-        // Fill the list of instances that support the operation
-        for (int i = 0; i < acInstCount; i++) {
-            uint16_t tmpObjId, tmpInstId;
-            // Find the Access Control Object Instance for the target object instance
-            if (!prv_get_ac_target_id(acInstances + i, &tmpObjId, &tmpInstId) || tmpObjId != objId || 
-                (operation == LWM2M_OBJ_OP_CREATE && tmpInstId != LWM2M_MAX_ID) ||
-                (operation != LWM2M_OBJ_OP_CREATE && tmpInstId == LWM2M_MAX_ID)) continue;
-            // Check if the server has permission for the operation and add the instance to the list
-            if (prv_is_server_has_permission(acInstances + i, serverP, operation)) {
-                lwm2m_list_t *tmpNodeP = (lwm2m_list_t *)lwm2m_malloc(sizeof(lwm2m_list_t));
-                tmpNodeP->id = tmpInstId;
-                tmpNodeP->next = NULL;
-                objInstList = (lwm2m_list_t *)LWM2M_LIST_ADD(objInstList, tmpNodeP);
-            }
-        }
-    }
+    if (objId == LWM2M_AC_OBJECT_ID) objInstList = prv_get_supported_ac_instances(acInstances, acInstCount, serverP);
+    else objInstList = prv_get_supported_target_instances(acInstances, acInstCount, serverP, objId, operation);
 
     return objInstList;
 }
