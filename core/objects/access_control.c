@@ -5,6 +5,13 @@
 #include "internals.h"
 #include <stdio.h>
 
+// TODO: When an object has multiple instances and the server performs the LWM2M_OBJ_OP_OBSERVE operation
+// on the entire object, but the server does not have access to all instances of the object, an unexpected
+// behavior occurs. When changing the value of one of the instances of the object, even if this instance is
+// not available for a specific server, a message about the change of value will still be generated, but only
+// those instances to which it has access will be transferred to the server. What is the problem with generating
+// notifications for the server even if the specific instance is not available to the server.
+
 /**
  * @brief Get the Access Control Object Instance target object and instance identifiers 
  */
