@@ -323,7 +323,7 @@ bool ac_is_operation_authorized(lwm2m_context_t * contextP, lwm2m_server_t * ser
 int ac_create_instance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP) {
     lwm2m_object_t * targetP;
     uint16_t objInstId;
-    lwm2m_data_t resourcesData[LWM2M_AC_MANDATORY_RES_CNT];
+    lwm2m_data_t *resourcesData, *aclData;
     uint8_t result;
 
     LOG_ARG("Creating Access Control Object Instance for %d/%d/%d/%d", uriP->objectId, uriP->instanceId);
@@ -339,18 +339,40 @@ int ac_create_instance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm
     if (NULL == targetP->createFunc) return COAP_405_METHOD_NOT_ALLOWED;
 
     // Prepare the Access Control Object Instance data
+    resourcesData = (lwm2m_data_t *)lwm2m_malloc(LWM2M_AC_RES_CNT * sizeof(lwm2m_data_t));
+    if (NULL == resourcesData) return COAP_500_INTERNAL_SERVER_ERROR;
+    aclData = (lwm2m_data_t *)lwm2m_malloc(sizeof(lwm2m_data_t));
+    if (NULL == aclData) {
+        lwm2m_free(resourcesData);
+        return COAP_500_INTERNAL_SERVER_ERROR;
+    }
+
+    // Fill object id
     resourcesData[0].id = LWM2M_AC_RES_OBJECT_ID;
     resourcesData[0].type = LWM2M_TYPE_INTEGER;
     resourcesData[0].value.asInteger = uriP->objectId;
+    // Fill instance id
     resourcesData[1].id = LWM2M_AC_RES_INSTANCE_ID;
     resourcesData[1].type = LWM2M_TYPE_INTEGER;
     resourcesData[1].value.asInteger = uriP->instanceId;
-    resourcesData[2].id = LWM2M_AC_RES_OWNER_ID;
-    resourcesData[2].type = LWM2M_TYPE_INTEGER;
-    resourcesData[2].value.asInteger = serverP->shortID;
+    // Fill ACL resource
+    aclData->id = LWM2M_AC_ACL_DEFAULT_ID;
+    aclData->type = LWM2M_TYPE_INTEGER;
+    aclData->value.asInteger = LWM2M_AC_NO_ACCESS;
+    resourcesData[2].id = LWM2M_AC_RES_ACL_ID;
+    resourcesData[2].type = LWM2M_TYPE_MULTIPLE_RESOURCE;
+    resourcesData[2].value.asChildren.count = 1;
+    resourcesData[2].value.asChildren.array = aclData;
+    // Fill owner id
+    resourcesData[3].id = LWM2M_AC_RES_OWNER_ID;
+    resourcesData[3].type = LWM2M_TYPE_INTEGER;
+    resourcesData[3].value.asInteger = serverP->shortID;
 
     objInstId = lwm2m_list_newId(targetP->instanceList);
-    result = targetP->createFunc(contextP, NULL, objInstId, LWM2M_AC_MANDATORY_RES_CNT, resourcesData, targetP);
+    result = targetP->createFunc(contextP, NULL, objInstId, LWM2M_AC_RES_CNT, resourcesData, targetP);
+
+    lwm2m_free(resourcesData);
+    lwm2m_free(aclData);
 
     LOG_ARG("Result of creating Access Control Object Instance for %d/%d/%d/%d is %d", uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId, result);
 
