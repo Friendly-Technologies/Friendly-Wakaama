@@ -222,13 +222,7 @@ int senml_cbor_encodeValueWithMap(CborEncoder* encoder,
     CborError err;
     int head;
 
-    LOG("senml_cbor_encodeValueWithMap ---- CHECKPOINT 1 ------------------");
-    LOG_ARG("tlvP-type = %d", &tlvP->type);
-    LOG_ARG("tlvP-type = %d", tlvP->type);
-    LOG_ARG("tlvP-type = %d", tlvP->type);
-    int type = tlvP->type;
-    LOG_ARG("tlvP-type = %d", type);
-    switch (type) {
+    switch (tlvP->type) {
         case LWM2M_TYPE_UNDEFINED:
         case LWM2M_TYPE_OBJECT:
         case LWM2M_TYPE_OBJECT_INSTANCE:
@@ -374,7 +368,6 @@ int senml_cbor_encodeValueWithMap(CborEncoder* encoder,
             break;
     }
 
-    LOG("CLOSING map --->");
     err = cbor_encoder_close_container(encoder, encoder); /// Closing map
     if (err != CborNoError) 
     {
@@ -410,7 +403,6 @@ int senml_cbor_encodeUri(CborEncoder* encoder,
 
     baseUriLen = uri_toString(uriP, baseUriStr, URI_MAX_STRING_LEN, &baseLevel);
     lwm2m_printf("%.*s", baseUriLen, baseUriStr);
-    LOG("senml_cbor_encodeUri ---- CHECKPOINT 1 ------------------");
     err = cbor_encode_text_string(encoder, (char *)baseUriStr, baseUriLen);
     if (err != CborNoError) 
     {
@@ -436,34 +428,24 @@ int encode_one_single_resource(const lwm2m_uri_t *uri, const lwm2m_data_t *data,
 
 // Function to encode Resources
 int encode_resources(CborEncoder* encoder, const lwm2m_uri_t *uri, const lwm2m_data_t *data, uint8_t *buffer) {
-    LOG("encode_resources");
-    LOG_ARG("dataP->type: %d", data->type);
-    LOG_ARG("dataP->type: %d", &data->type);
     int length = senml_cbor_encodeUri(encoder, uri, buffer);
     length += senml_cbor_encodeValueWithMap(encoder, data, buffer);
     return length;
 }
 
 int prv_serialize(CborEncoder* encoderP, lwm2m_uri_t *uriP, int size, const lwm2m_data_t *dataP, uint8_t *bufferP, uri_depth_t *levelP) {
-    // Iterate through the children of the Object
     int length = 0;
-    
-    LOG_ARG("levelP: %d", *levelP);
-    LOG_ARG("dataP->type: %d", dataP->type);
 
-    for (int i = 0; i < size; i++) {
-        // const lwm2m_data_t *child_data = &data->value.asChildren.array[i];
+    for (int i = 0; i < size; i++) 
+    {
         lwm2m_uri_t child_uri;
         memcpy(&child_uri, uriP, sizeof(lwm2m_uri_t));
-        // Set instance ID and resource ID
         if (*levelP == LWM2M_OBJECT){
-            LOG_ARG("levelP instance: %d", *levelP);
             child_uri.instanceId = dataP[i].id;
             *levelP = LWM2M_INSTANCE;
             length += prv_serialize(encoderP, &child_uri, dataP[i].value.asChildren.count, dataP[i].value.asChildren.array, bufferP, levelP);
         }
         if (*levelP == LWM2M_INSTANCE){
-            LOG_ARG("levelP resource: %d", *levelP);
             if (dataP->type == LWM2M_TYPE_MULTIPLE_RESOURCE){
                 child_uri.resourceId = dataP[i].id;
                 *levelP = LWM2M_MULTIPLE_RESOURCE;
@@ -475,12 +457,7 @@ int prv_serialize(CborEncoder* encoderP, lwm2m_uri_t *uriP, int size, const lwm2
                length += encode_resources(encoderP, &child_uri, dataP, bufferP);
             }
         }
-        else if (*levelP == LWM2M_RESOURCE){
-            LOG_ARG("levelP multi-resource: %d", *levelP);
-            child_uri.resourceInstanceId = dataP[i].id;
-            length += encode_resources(encoderP, &child_uri, dataP, bufferP);
-        }
-        else if (*levelP == LWM2M_MULTIPLE_RESOURCE){
+        else if ( (*levelP == LWM2M_RESOURCE) || (*levelP == LWM2M_MULTIPLE_RESOURCE) ){
             LOG_ARG("levelP multi-resource: %d", *levelP);
             child_uri.resourceInstanceId = dataP[i].id;
             length += encode_resources(encoderP, &child_uri, dataP, bufferP);
@@ -497,11 +474,7 @@ int senml_cbor_serialize(lwm2m_uri_t * uriP,
 {
     size_t length = 0;
     *bufferP = NULL;
-
-    // int baseUriLen;
     uri_depth_t baseLevel;
-    // uint8_t baseUriStr[URI_MAX_STRING_LEN];
-
     uint8_t bufferCBOR[1024];
 
     LOG_ARG("size: %d", size);
@@ -509,27 +482,7 @@ int senml_cbor_serialize(lwm2m_uri_t * uriP,
     LOG_ARG("senml_cbor_serialize: uriP.objectId = %d, ", uriP->objectId);
     LOG_ARG("senml_cbor_serialize: uriP.instanceId = %d, ", uriP->instanceId);
     LOG_ARG("senml_cbor_serialize: uriP.resourceId = %d, ", uriP->resourceId);
-    LOG("---------------------------");
-    LOG_ARG("senml_cbor_serialize: dataP.type = %d, ", dataP->type);
-    LOG_ARG("senml_cbor_serialize: dataP.ID = %d, ", dataP->id);
-    LOG_ARG("senml_cbor_serialize: dataP.asBoolean = %d, ", dataP->value.asBoolean);
-    LOG_ARG("senml_cbor_serialize: dataP.asInteger = %d, ", dataP->value.asInteger);
-    LOG_ARG("senml_cbor_serialize: dataP.asUnsigned = %lu, ", dataP->value.asUnsigned);
-    LOG_ARG("senml_cbor_serialize: dataP.asFloat = %f, ", dataP->value.asFloat);
-    LOG_ARG("senml_cbor_serialize: dataP.asBufferLength = %d, ", dataP->value.asBuffer.length);
-    LOG_ARG("senml_cbor_serialize: dataP.asChildrenCount = %d, ", dataP->value.asChildren.count);
-    LOG_ARG("senml_cbor_serialize: dataP.asObjLink.objectId = %d, ", dataP->value.asObjLink.objectId);
-    LOG_ARG("senml_cbor_serialize: dataP.asObjLink.objectInstanceId = %d, ", dataP->value.asObjLink.objectInstanceId);
-
-    // baseUriLen = uri_toString(uriP, baseUriStr, URI_MAX_STRING_LEN, &baseLevel);
-    // LOG_ARG("baseUriLen = %d", baseUriLen);
-
-    LOG_ARG("URI objectId = %d", uriP->objectId);
-    LOG_ARG("URI instanceId = %d", uriP->instanceId);
-    LOG_ARG("URI resourceId = %d", uriP->resourceId);
-    LOG_ARG("URI resourceInstanceId = %d", uriP->resourceInstanceId);
     
-    // LOG_ARG("baseLevel = %d", baseLevel);
     if (!LWM2M_URI_IS_SET_OBJECT(uriP)){
         //error 
     }
@@ -563,7 +516,6 @@ int senml_cbor_serialize(lwm2m_uri_t * uriP,
                 return -1;
             }
             length += prv_serialize(&encoder, uriP, size, dataP, bufferCBOR, &baseLevel);
-            LOG("CLOSING Array --->");
             err = cbor_encoder_close_container(&encoder, &encoder); /// Closing array
             if (err != CborNoError) 
             {
@@ -573,10 +525,8 @@ int senml_cbor_serialize(lwm2m_uri_t * uriP,
             break;
         }
         case LWM2M_RESOURCE:
-            LOG("RESOURCE level");
             if (dataP->type == LWM2M_TYPE_MULTIPLE_RESOURCE) 
             {
-                LOG("LWM2M_TYPE_MULTIPLE_RESOURCE ");
                 CborEncoder encoder;
                 CborError err;
                 cbor_encoder_init(&encoder, bufferCBOR, sizeof(bufferCBOR), 0);
@@ -588,7 +538,6 @@ int senml_cbor_serialize(lwm2m_uri_t * uriP,
                     return -1;
                 }
                 length = prv_serialize(&encoder, uriP, size, dataP, bufferCBOR, &baseLevel);
-                LOG("CLOSING Array --->");
                 err = cbor_encoder_close_container(&encoder, &encoder); /// Closing array
                 if (err != CborNoError) 
                 {
@@ -597,10 +546,7 @@ int senml_cbor_serialize(lwm2m_uri_t * uriP,
                 }
             } 
             else 
-            {
-                LOG("encode_resource -> SINGLE DATA");
                 length += encode_one_single_resource(uriP, dataP, bufferCBOR);
-            }
             break;
         case LWM2M_MULTIPLE_RESOURCE:
             if (dataP->type != LWM2M_TYPE_MULTIPLE_RESOURCE){
@@ -609,7 +555,6 @@ int senml_cbor_serialize(lwm2m_uri_t * uriP,
             }
             if (dataP->value.asChildren.count > 1) 
             {
-                LOG("MULTIPLE level");
                 CborEncoder encoder;
                 CborError err;
                 cbor_encoder_init(&encoder, bufferCBOR, sizeof(bufferCBOR), 0);
@@ -621,7 +566,6 @@ int senml_cbor_serialize(lwm2m_uri_t * uriP,
                     return -1;
                 }
                 length += prv_serialize(&encoder, uriP, size, dataP, bufferCBOR, &baseLevel);
-                LOG("CLOSING Array --->");
                 err = cbor_encoder_close_container(&encoder, &encoder); /// Closing array
                 if (err != CborNoError) 
                 {
@@ -630,10 +574,7 @@ int senml_cbor_serialize(lwm2m_uri_t * uriP,
                 }
             }
             else
-            {
-                LOG("encode_resource -> SINGLE DATA");
                 length += encode_one_single_resource(uriP, dataP, bufferCBOR);
-            }
             break;
         default:
             break;
@@ -647,11 +588,11 @@ int senml_cbor_serialize(lwm2m_uri_t * uriP,
         return -1; 
     }
     
-    LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-    for (int i = 0; i < (int)length; i++){
+    LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>final resulting buffer>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+    for (int i = 0; i <= (int)length; i++){
         lwm2m_printf("%x", bufferCBOR[i]);
     }
-    LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+    LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
     LOG_ARG("length = %d", length);     
     memcpy(*bufferP, bufferCBOR, length);
 
