@@ -220,8 +220,7 @@ static bool prv_is_instance_operation_authorized(lwm2m_data_t *acInstances, int 
     return prv_is_server_has_permission(acForTarget, serverP, operation);
 }
 
-static lwm2m_list_t * prv_get_supported_ac_instances(lwm2m_data_t *acInstances, int acInstCount, lwm2m_server_t * serverP) {
-    lwm2m_list_t *objInstList = NULL;
+static int prv_get_supported_ac_instances(lwm2m_data_t *acInstances, int acInstCount, lwm2m_server_t * serverP, lwm2m_list_t **objInstList) {
     lwm2m_data_t *acInstance = acInstances;
     uint16_t aclOwner;
 
@@ -229,19 +228,22 @@ static lwm2m_list_t * prv_get_supported_ac_instances(lwm2m_data_t *acInstances, 
         aclOwner = prv_get_ac_owner(acInstance);
         if (aclOwner == serverP->shortID) {
             lwm2m_list_t *tmpNodeP = (lwm2m_list_t *)lwm2m_malloc(sizeof(lwm2m_list_t));
+            if (tmpNodeP == NULL) {
+                LWM2M_LIST_FREE(*objInstList);
+                *objInstList = NULL;
+                return COAP_500_INTERNAL_SERVER_ERROR;
+            }
             tmpNodeP->id = acInstance->id;
             tmpNodeP->next = NULL;
-            objInstList = (lwm2m_list_t *)LWM2M_LIST_ADD(objInstList, tmpNodeP);
+            *objInstList = (lwm2m_list_t *)LWM2M_LIST_ADD(*objInstList, tmpNodeP);
         }
         acInstance++;
     }
 
-    return objInstList;
+    return *objInstList? COAP_205_CONTENT : COAP_401_UNAUTHORIZED;
 }
 
-static lwm2m_list_t * prv_get_supported_target_instances(lwm2m_data_t *acInstances, int acInstCount, lwm2m_server_t * serverP, uint16_t objId, lwm2m_obj_operation_t operation) {
-    lwm2m_list_t *objInstList = NULL;
-
+static int prv_get_supported_target_instances(lwm2m_data_t *acInstances, int acInstCount, lwm2m_server_t * serverP, uint16_t objId, lwm2m_obj_operation_t operation, lwm2m_list_t **objInstList) {
     // Fill the list of instances that support the operation
     for (int i = 0; i < acInstCount; i++) {
         uint16_t tmpObjId, tmpInstId;
@@ -252,21 +254,29 @@ static lwm2m_list_t * prv_get_supported_target_instances(lwm2m_data_t *acInstanc
         // Check if the server has permission for the operation and add the instance to the list
         if (prv_is_server_has_permission(acInstances + i, serverP, operation)) {
             lwm2m_list_t *tmpNodeP = (lwm2m_list_t *)lwm2m_malloc(sizeof(lwm2m_list_t));
+            if (tmpNodeP == NULL) {
+                LWM2M_LIST_FREE(*objInstList);
+                *objInstList = NULL;
+                return COAP_500_INTERNAL_SERVER_ERROR;
+            }
             tmpNodeP->id = tmpInstId;
             tmpNodeP->next = NULL;
-            objInstList = (lwm2m_list_t *)LWM2M_LIST_ADD(objInstList, tmpNodeP);
+            *objInstList = (lwm2m_list_t *)LWM2M_LIST_ADD(*objInstList, tmpNodeP);
         }
     }
 
-    return objInstList;
+    return *objInstList? COAP_205_CONTENT : COAP_401_UNAUTHORIZED;
 }
 
 /**
  * @brief Check if Access Control Object is enabled
  */
-bool ac_is_enabled(lwm2m_context_t * contextP) {
+bool ac_is_enabled(lwm2m_context_t * contextP, lwm2m_server_t * serverP) {
     lwm2m_object_t * acObjP = (lwm2m_object_t *)LWM2M_LIST_FIND(contextP->objectList, LWM2M_AC_OBJECT_ID);
-    return acObjP != NULL && acObjP->instanceList != NULL;
+    // In bootstrap mode, the bootstrap server can read all object instances,
+    // also core has the same ability, otherwise, the server can read only those
+    // instances of the object for which it has rights. 
+    return contextP->state != STATE_BOOTSTRAPPING && serverP != NULL && acObjP != NULL && acObjP->instanceList != NULL;
 }
 
 /**
@@ -294,9 +304,9 @@ bool ac_is_operation_authorized(lwm2m_context_t * contextP, lwm2m_server_t * ser
     LOG_ARG("Checking if operation %d is authorized for %d/%d/%d/%d", operation, uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId);
 
     // Validate input parameters
-    if (!contextP || !serverP || !uriP || uriP->objectId == LWM2M_MAX_ID || operation == LWM2M_OBJ_OP_UNKNOWN) return false;
+    if (!contextP || !uriP || uriP->objectId == LWM2M_MAX_ID || operation == LWM2M_OBJ_OP_UNKNOWN) return false;
     // If Access Control Object is not enabled, then the operation is always allowed
-    if (!ac_is_enabled(contextP)) return true;
+    if (!ac_is_enabled(contextP, serverP)) return true;
 
     // Discover operation is always allowed
     if (operation == LWM2M_OBJ_OP_DISCOVER) return true;
@@ -366,7 +376,7 @@ int ac_create_instance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm
     // Fill owner id
     resourcesData[3].id = LWM2M_AC_RES_OWNER_ID;
     resourcesData[3].type = LWM2M_TYPE_INTEGER;
-    resourcesData[3].value.asInteger = serverP->shortID;
+    resourcesData[3].value.asInteger = serverP? serverP->shortID : LWM2M_MAX_ID;
 
     objInstId = lwm2m_list_newId(targetP->instanceList);
     result = targetP->createFunc(contextP, NULL, objInstId, LWM2M_AC_RES_CNT, resourcesData, targetP);
@@ -382,7 +392,7 @@ int ac_create_instance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm
 /**
  * @brief Delete Access Control Object Instance for the target object. 
  */
-int ac_delete_instance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP) {
+int ac_delete_instance(lwm2m_context_t * contextP, lwm2m_uri_t * uriP) {
     lwm2m_object_t * acObjectP;
     lwm2m_data_t *acInstances, *acInstance;
     lwm2m_uri_t aclUri = {LWM2M_AC_OBJECT_ID, LWM2M_MAX_ID, LWM2M_MAX_ID, LWM2M_MAX_ID};
@@ -392,7 +402,7 @@ int ac_delete_instance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm
     LOG_ARG("Deleting Access Control Object Instance for %d/%d/%d/%d", uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId);
 
     // Validate input parameters
-    if (!contextP || !serverP || !uriP || !LWM2M_URI_IS_SET_INSTANCE(uriP)) return COAP_400_BAD_REQUEST;
+    if (!contextP || !uriP || !LWM2M_URI_IS_SET_INSTANCE(uriP)) return COAP_400_BAD_REQUEST;
     // We should not delete Access Control Object Instance for Access Control Object
     if (uriP->objectId == LWM2M_AC_OBJECT_ID) return COAP_202_DELETED;
 
@@ -425,43 +435,44 @@ int ac_delete_instance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm
  * @brief Returns a list of instances of a specific object that support the specified operation for the specified server.
  * Returned list should be freed by the caller.
  */
-lwm2m_list_t * ac_get_instances_with_support_operation(lwm2m_context_t * contextP, lwm2m_server_t * serverP, uint16_t objId, lwm2m_obj_operation_t operation) {
+int ac_get_instances_with_support_operation(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_object_t * targetObjP, lwm2m_obj_operation_t operation, lwm2m_list_t **objInstList) {
     lwm2m_uri_t aclUri = {LWM2M_AC_OBJECT_ID, LWM2M_MAX_ID, LWM2M_MAX_ID, LWM2M_MAX_ID};
     lwm2m_data_t *acInstances = NULL;
     int acInstCount = 0;
-    lwm2m_object_t *targetObjP = NULL;
-    lwm2m_list_t *objInstList = NULL;
+    int result = COAP_205_CONTENT;
 
-    LOG_ARG("Getting instances with support for operation %d for object %d", operation, objId);
+    LOG_ARG("Getting instances with support operation %d for object %d", operation, targetObjP->objID);
 
     // Validate input parameters
-    if (!contextP || !serverP || objId == LWM2M_MAX_ID || operation == LWM2M_OBJ_OP_UNKNOWN) return NULL;
-
-    // Getting the target object
-    targetObjP = (lwm2m_object_t *)LWM2M_LIST_FIND(contextP->objectList, objId);
-    if (NULL == targetObjP) return NULL;
+    if (!contextP || !targetObjP || operation == LWM2M_OBJ_OP_UNKNOWN || !objInstList) return COAP_400_BAD_REQUEST;
+    *objInstList = NULL;
 
     // If Access Control Object is not enabled, then the operation is always allowed
     // Discover operation is always allowed
-    if (!ac_is_enabled(contextP) || operation == LWM2M_OBJ_OP_DISCOVER) {
+    if (!ac_is_enabled(contextP, serverP) || operation == LWM2M_OBJ_OP_DISCOVER) {
         lwm2m_list_t *tmpListP = targetObjP->instanceList;
         while (tmpListP != NULL) {
             lwm2m_list_t *tmpNodeP = (lwm2m_list_t *)lwm2m_malloc(sizeof(lwm2m_list_t));
+            if (tmpNodeP == NULL) {
+                LWM2M_LIST_FREE(*objInstList);
+                *objInstList = NULL;
+                return COAP_500_INTERNAL_SERVER_ERROR;
+            }
             tmpNodeP->id = tmpListP->id;
             tmpNodeP->next = NULL;
-            objInstList = (lwm2m_list_t *)LWM2M_LIST_ADD(objInstList, tmpNodeP);
+            *objInstList = (lwm2m_list_t *)LWM2M_LIST_ADD(*objInstList, tmpNodeP);
             tmpListP = tmpListP->next;
         }
-        return objInstList;
+        return COAP_205_CONTENT;
     }
 
     // Get Access Control Object instances
     object_readData(contextP, NULL, &aclUri, &acInstCount, &acInstances);
-    if (acInstCount == 0) return NULL;
+    if (acInstCount == 0) return COAP_500_INTERNAL_SERVER_ERROR;
     
     // We have different logic for Access Control Object and other objects
-    if (objId == LWM2M_AC_OBJECT_ID) objInstList = prv_get_supported_ac_instances(acInstances, acInstCount, serverP);
-    else objInstList = prv_get_supported_target_instances(acInstances, acInstCount, serverP, objId, operation);
+    if (targetObjP->objID == LWM2M_AC_OBJECT_ID) result = prv_get_supported_ac_instances(acInstances, acInstCount, serverP, objInstList);
+    else result = prv_get_supported_target_instances(acInstances, acInstCount, serverP, targetObjP->objID, operation, objInstList);
 
-    return objInstList;
+    return result;
 }

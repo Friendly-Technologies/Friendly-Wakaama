@@ -245,6 +245,7 @@ int prv_handle_observe_operation(lwm2m_context_t * contextP,
     lwm2m_data_t * dataP = NULL;
     int size = 0;
 
+    // object_readData() function also checks if the server has access to the object/instance 
     result = object_readData(contextP, serverP, uriP, &size, &dataP);
     if (COAP_205_CONTENT != result) {
         return result;
@@ -331,11 +332,6 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
         return COAP_400_BAD_REQUEST;
     }
     LOG_ARG("Operation: %d", operation);
-    
-    if (ac_is_enabled(contextP) && !ac_is_operation_authorized(contextP, serverP, uriP, operation))
-    {
-        return COAP_401_UNAUTHORIZED;
-    }
 
     switch (operation) {
     case LWM2M_OBJ_OP_READ: {
@@ -388,13 +384,6 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
             break;
         }
 
-        if (ac_is_enabled(contextP)) {
-            result = ac_create_instance(contextP, serverP, uriP);
-            if (result != COAP_201_CREATED) {
-                object_delete(contextP, serverP, uriP);
-            }
-        }
-
         coap_set_header_location_path(response, location_path);
         lwm2m_update_registration(contextP, 0, false, true);
         break;
@@ -403,7 +392,6 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
         result = object_delete(contextP, serverP, uriP);
         if (result == COAP_202_DELETED)
         {
-            if (ac_is_enabled(contextP)) ac_delete_instance(contextP, serverP, uriP);
             lwm2m_update_registration(contextP, 0, false, true);
         }
         break;

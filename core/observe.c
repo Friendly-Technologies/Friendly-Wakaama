@@ -175,6 +175,7 @@ uint8_t observe_handleRequest(lwm2m_context_t * contextP,
 
     LOG_ARG("Code: %02X, server status: %s", message->code, STR_STATUS(serverP->status));
     LOG_URI(uriP);
+    if (ac_is_enabled(contextP, serverP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_OBSERVE)) return COAP_401_UNAUTHORIZED;
 
     coap_get_header_observe(message, &count);
 
@@ -345,6 +346,7 @@ uint8_t observe_setParameters(lwm2m_context_t * contextP,
             attrP->toSet, attrP->toClear, attrP->minPeriod, attrP->maxPeriod, attrP->greaterThan, attrP->lessThan, attrP->step);
 
     if (!LWM2M_URI_IS_SET_INSTANCE(uriP) && LWM2M_URI_IS_SET_RESOURCE(uriP)) return COAP_400_BAD_REQUEST;
+    // if (ac_is_enabled(contextP, serverP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_WRITE_ATTRIBUTES)) return COAP_401_UNAUTHORIZED;
 
     result = object_checkReadable(contextP, uriP, attrP);
     if (COAP_205_CONTENT != result) return result;

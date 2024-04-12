@@ -186,37 +186,17 @@ static uint8_t prv_object_get_instances_for_read(lwm2m_context_t * contextP,
                                           lwm2m_object_t * targetP,
                                           int * sizeP,
                                           lwm2m_list_t ** instanceP) {
-    *instanceP = NULL;
-    *sizeP = 0;
+    uint8_t result;
+    lwm2m_list_t * tmpListP = NULL;
 
-    // In bootstrap mode, the bootstrap server can read all object instances,
-    // also core has the same ability, otherwise, the server can read only those
-    // instances of the object for which it has rights. 
-    if (contextP->state != STATE_BOOTSTRAPPING && serverP != NULL && ac_is_enabled(contextP))
+    result = ac_get_instances_with_support_operation(contextP, serverP, targetP, LWM2M_OBJ_OP_READ, instanceP);
+    if (result != COAP_205_CONTENT || *instanceP == NULL) return result;
+
+    tmpListP = *instanceP;
+    while (tmpListP != NULL)
     {
-        lwm2m_list_t * tmpListP = ac_get_instances_with_support_operation(contextP, serverP, targetP->objID, LWM2M_OBJ_OP_READ);
-        *instanceP = tmpListP;
-        while (tmpListP != NULL)
-        {
-            (*sizeP)++;
-            tmpListP = tmpListP->next;
-        }
-
-    } else {
-        lwm2m_list_t * tmpListP = targetP->instanceList;
-        while (tmpListP != NULL) {
-            lwm2m_list_t *tmpNodeP = (lwm2m_list_t *)lwm2m_malloc(sizeof(lwm2m_list_t));
-            if (tmpNodeP == NULL) {
-                LWM2M_LIST_FREE(*instanceP);
-                *instanceP = NULL;
-                return COAP_500_INTERNAL_SERVER_ERROR;
-            }
-            tmpNodeP->id = tmpListP->id;
-            tmpNodeP->next = NULL;
-            *instanceP = (lwm2m_list_t *)LWM2M_LIST_ADD(*instanceP, tmpNodeP);
-            (*sizeP)++;
-            tmpListP = tmpListP->next;
-        }
+        (*sizeP)++;
+        tmpListP = tmpListP->next;
     }
 
     return COAP_205_CONTENT;
@@ -238,6 +218,7 @@ uint8_t object_readData(lwm2m_context_t * contextP,
 
     if (LWM2M_URI_IS_SET_INSTANCE(uriP))
     {
+        if (ac_is_enabled(contextP, serverP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_READ)) return COAP_401_UNAUTHORIZED;
         if (NULL == lwm2m_list_find(targetP->instanceList, uriP->instanceId)) return COAP_404_NOT_FOUND;
 
         // single instance read
@@ -279,7 +260,7 @@ uint8_t object_readData(lwm2m_context_t * contextP,
         *dataP = NULL;
 
         result = prv_object_get_instances_for_read(contextP, serverP, targetP, sizeP, &instanceP);
-        if (*sizeP == 0 || result != COAP_205_CONTENT)
+        if (*sizeP == 0)
         {
             *dataP = NULL;
         }
@@ -433,6 +414,7 @@ uint8_t object_write(lwm2m_context_t * contextP,
     LOG_URI(uriP);
     if (!LWM2M_URI_IS_SET_OBJECT(uriP)) return COAP_400_BAD_REQUEST;
     if (!LWM2M_URI_IS_SET_INSTANCE(uriP)) return COAP_400_BAD_REQUEST;
+    if (ac_is_enabled(contextP, serverP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_WRITE)) return COAP_401_UNAUTHORIZED;
 
     targetP = (lwm2m_object_t *)LWM2M_LIST_FIND(contextP->objectList, uriP->objectId);
     if (NULL == targetP)
@@ -444,7 +426,7 @@ uint8_t object_write(lwm2m_context_t * contextP,
         result = COAP_405_METHOD_NOT_ALLOWED;
     }
     else
-    {
+    {   
         size = lwm2m_data_parse(uriP, buffer, length, format, &dataP);
         if (size <= 0)
         {
@@ -514,6 +496,7 @@ uint8_t object_execute(lwm2m_context_t * contextP,
     targetP = (lwm2m_object_t *)LWM2M_LIST_FIND(contextP->objectList, uriP->objectId);
     if (NULL == targetP) return COAP_404_NOT_FOUND;
     if (NULL == targetP->executeFunc) return COAP_405_METHOD_NOT_ALLOWED;
+    if (ac_is_enabled(contextP, serverP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_EXECUTE)) return COAP_401_UNAUTHORIZED;
     if (NULL == lwm2m_list_find(targetP->instanceList, uriP->instanceId)) return COAP_404_NOT_FOUND;
 
     return targetP->executeFunc(contextP, serverP, uriP->instanceId, uriP->resourceId, buffer, length, targetP);
@@ -541,6 +524,7 @@ uint8_t object_create(lwm2m_context_t * contextP,
     targetP = (lwm2m_object_t *)LWM2M_LIST_FIND(contextP->objectList, uriP->objectId);
     if (NULL == targetP) return COAP_404_NOT_FOUND;
     if (NULL == targetP->createFunc) return COAP_405_METHOD_NOT_ALLOWED;
+    if (ac_is_enabled(contextP, serverP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_CREATE)) return COAP_401_UNAUTHORIZED;
 
     size = lwm2m_data_parse(uriP, buffer, length, format, &dataP);
     if (size <= 0) return COAP_400_BAD_REQUEST;
@@ -574,6 +558,12 @@ uint8_t object_create(lwm2m_context_t * contextP,
         }
         result = targetP->createFunc(contextP, serverP, uriP->instanceId, size, dataP, targetP);
         break;
+    }
+
+    if (result == COAP_201_CREATED && ac_is_enabled(contextP, serverP)) {
+        result = ac_create_instance(contextP, serverP, uriP);
+        // Rollback if access control creation failed
+        if (result != COAP_201_CREATED) object_delete(contextP, NULL, uriP);
     }
 
 exit:
@@ -690,6 +680,7 @@ uint8_t object_delete(lwm2m_context_t * contextP,
     objectP = (lwm2m_object_t *)LWM2M_LIST_FIND(contextP->objectList, uriP->objectId);
     if (NULL == objectP) return COAP_404_NOT_FOUND;
     if (NULL == objectP->deleteFunc) return COAP_405_METHOD_NOT_ALLOWED;
+    if (ac_is_enabled(contextP, serverP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_DELETE)) return COAP_401_UNAUTHORIZED;
 
     LOG("Entering");
 
@@ -699,14 +690,15 @@ uint8_t object_delete(lwm2m_context_t * contextP,
         if (result == COAP_202_DELETED)
         {
             observe_clear(contextP, uriP);
+            if (ac_is_enabled(contextP, serverP)) ac_delete_instance(contextP, uriP);
         }
     }
     else
     {
+        // Delete all object instances, this operation is possible in the bootsrap phase
         lwm2m_list_t * instanceP;
         lwm2m_uri_t tempUri;
-
-
+        
         memcpy(&tempUri, uriP, sizeof(tempUri));
         result = COAP_202_DELETED;
         instanceP = objectP->instanceList;
@@ -743,6 +735,7 @@ uint8_t object_discover(lwm2m_context_t * contextP,
     targetP = (lwm2m_object_t *)LWM2M_LIST_FIND(contextP->objectList, uriP->objectId);
     if (NULL == targetP) return COAP_404_NOT_FOUND;
     if (NULL == targetP->discoverFunc) return COAP_501_NOT_IMPLEMENTED;
+    if (ac_is_enabled(contextP, serverP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_DISCOVER)) return COAP_401_UNAUTHORIZED;
 
     if (LWM2M_URI_IS_SET_INSTANCE(uriP))
     {

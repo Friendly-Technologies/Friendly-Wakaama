@@ -7,7 +7,7 @@
 
 #if defined(LWM2M_CLIENT_MODE) && defined(LWM2M_SUPPORT_SENML_JSON)
 
-static uint8_t create_payload(lwm2m_context_t * contextP, lwm2m_server_t * serverP,  lwm2m_uri_t * uriP, uint8_t ** bufferP, size_t * lengthP)
+static uint8_t create_payload(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP, uint8_t ** bufferP, size_t * lengthP)
 {
     uint8_t result;
     lwm2m_data_t * dataP = NULL;
@@ -15,7 +15,7 @@ static uint8_t create_payload(lwm2m_context_t * contextP, lwm2m_server_t * serve
     int res;
     lwm2m_media_type_t formatP = LWM2M_CONTENT_SENML_JSON;
 
-    if (ac_is_enabled(contextP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_READ)) {
+    if (ac_is_enabled(contextP, serverP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_READ)) {
         LOG_ARG("Server %d is not authorized for send", serverP->shortID);
         return COAP_401_UNAUTHORIZED;
     }
