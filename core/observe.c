@@ -175,7 +175,6 @@ uint8_t observe_handleRequest(lwm2m_context_t * contextP,
 
     LOG_ARG("Code: %02X, server status: %s", message->code, STR_STATUS(serverP->status));
     LOG_URI(uriP);
-    if (ac_is_enabled(contextP, serverP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_OBSERVE)) return COAP_401_UNAUTHORIZED;
 
     coap_get_header_observe(message, &count);
 
@@ -543,8 +542,7 @@ void observe_step(lwm2m_context_t * contextP,
         if (LWM2M_URI_IS_SET_RESOURCE(&targetP->uri))
         {
             lwm2m_data_t *valueP;
-
-            if (COAP_205_CONTENT != object_readData(contextP, watcherP->server, &targetP->uri, &size, &dataP)) continue;
+            if (COAP_205_CONTENT != object_readData(contextP, NULL, &targetP->uri, &size, &dataP)) continue;
             valueP = dataP;
 #ifndef LWM2M_VERSION_1_0
             if (LWM2M_URI_IS_SET_RESOURCE_INSTANCE(&targetP->uri)

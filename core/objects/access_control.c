@@ -301,7 +301,7 @@ bool ac_is_operation_authorized(lwm2m_context_t * contextP, lwm2m_server_t * ser
     int acInstCount = 0;
     bool result = false;
 
-    LOG_ARG("Checking if operation %d is authorized for %d/%d/%d/%d", operation, uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId);
+    LOG_ARG("Checking if operation %d is authorized for %d/%d/%d/%d, server: %d", operation, uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId, ((serverP)? serverP->shortID : LWM2M_MAX_ID));
 
     // Validate input parameters
     if (!contextP || !uriP || uriP->objectId == LWM2M_MAX_ID || operation == LWM2M_OBJ_OP_UNKNOWN) return false;
@@ -321,7 +321,7 @@ bool ac_is_operation_authorized(lwm2m_context_t * contextP, lwm2m_server_t * ser
     else result = prv_is_instance_operation_authorized(acInstances, acInstCount, serverP, uriP, operation);
     lwm2m_data_free(acInstCount, acInstances);
 
-    LOG_ARG("Operation %d is %s for %d/%d/%d/%d", operation, result ? "authorized" : "not authorized", uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId);
+    LOG_ARG("Operation %d is %s for %d/%d/%d/%d, server: %d", operation, result ? "authorized" : "not authorized", uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId, (serverP)? serverP->shortID : LWM2M_MAX_ID);
 
     return result;
 }
