@@ -39,162 +39,6 @@
 #define SENML_CBOR_MAP_OPAQUE       (8)
 #define SENML_CBOR_MAP_OBJ_LINK     (9)
 
-
-static int senml_cbor_serializeValue(CborEncoder* encoder,
-                              const lwm2m_data_t * tlvP,
-                              uint8_t * buffer)
-{
-    CborError err;
-    int head;
-
-    switch (tlvP->type) {
-        case LWM2M_TYPE_UNDEFINED:
-        case LWM2M_TYPE_OBJECT:
-        case LWM2M_TYPE_OBJECT_INSTANCE:
-        case LWM2M_TYPE_MULTIPLE_RESOURCE:
-            return -1;
-            break;
-        case LWM2M_TYPE_TIME:
-        {
-            err = cbor_encode_int(encoder, SENML_CBOR_MAP_TIME);
-            if (err != CborNoError) {
-                lwm2m_free(buffer);
-                LOG_ARG("cbor_encode_int FAILED with error %d", err);
-                return -1; 
-            }
-            err = cbor_encode_tag(encoder, CborUnixTime_tTag);/// now unixTime is the only tag-ed type
-            if (err != CborNoError) {
-                free(buffer);
-                return err; 
-            }
-            err = cbor_encode_int(encoder, tlvP->value.asInteger);
-            if (err != CborNoError) {
-                free(buffer);
-                return err; 
-            }
-            head = cbor_encoder_get_buffer_size(encoder, buffer);
-            break;
-        }
-        case LWM2M_TYPE_OBJECT_LINK:
-        {
-            err = cbor_encode_int(encoder, SENML_CBOR_MAP_OBJ_LINK);
-            if (err != CborNoError) {
-                lwm2m_free(buffer);
-                LOG_ARG("cbor_encode_int FAILED with error %d", err);
-                return -1; 
-            }
-            char tempBuffer[12]; // Sufficient buffer to hold the string representation (e.g., "65535:65535" -> 5 + 1 + 5 == 11 symbols)
-            snprintf(tempBuffer, sizeof(tempBuffer), "%u:%u", tlvP->value.asObjLink.objectId, tlvP->value.asObjLink.objectInstanceId);
-            err = cbor_encode_text_string(encoder, tempBuffer, strlen(tempBuffer));
-            if (err != CborNoError) {
-                lwm2m_free(buffer);
-                LOG_ARG("cbor_encode_text_string/obj_link FAILED with error %d", err);
-                return -1; 
-            }
-            head = cbor_encoder_get_buffer_size(encoder, buffer);
-            break;
-        }
-        case LWM2M_TYPE_OPAQUE:
-            err = cbor_encode_int(encoder, SENML_CBOR_MAP_OPAQUE);
-            if (err != CborNoError) {
-                lwm2m_free(buffer);
-                LOG_ARG("cbor_encode_int FAILED with error %d", err);
-                return -1; 
-            }
-            err = cbor_encode_byte_string(encoder, tlvP->value.asBuffer.buffer, tlvP->value.asBuffer.length);
-            if (err != CborNoError) {
-                lwm2m_free(buffer);
-                LOG_ARG("cbor_encode_byte_string FAILED with error %d", err);
-                return -1; 
-            }
-            head = cbor_encoder_get_buffer_size(encoder, buffer);
-            break;
-        case LWM2M_TYPE_STRING:
-        case LWM2M_TYPE_CORE_LINK:
-            err = cbor_encode_int(encoder, SENML_CBOR_MAP_STRING_VALUE);
-            if (err != CborNoError) {
-                lwm2m_free(buffer);
-                LOG_ARG("cbor_encode_int FAILED with error %d", err);
-                return -1; 
-            }
-            err = cbor_encode_text_string(encoder,(char *) tlvP->value.asBuffer.buffer, tlvP->value.asBuffer.length);
-            if (err != CborNoError) {
-                lwm2m_free(buffer);
-                LOG_ARG("cbor_encode_text_string FAILED with error %d", err);
-                return -1; 
-            }
-            head = cbor_encoder_get_buffer_size(encoder, buffer);
-            break;
-        case LWM2M_TYPE_INTEGER:
-            err = cbor_encode_int(encoder, SENML_CBOR_MAP_VALUE);
-            if (err != CborNoError) {
-                lwm2m_free(buffer);
-                LOG_ARG("cbor_encode_int FAILED with error %d", err);
-                return -1; 
-            }
-            err = cbor_encode_int(encoder,tlvP->value.asInteger);
-            if (err != CborNoError) {
-                lwm2m_free(buffer);
-                LOG_ARG("cbor_encode_int FAILED with error %d", err);
-                return -1; 
-            }
-            head = cbor_encoder_get_buffer_size(encoder, buffer);
-            break;
-        case LWM2M_TYPE_UNSIGNED_INTEGER:
-            err = cbor_encode_int(encoder, SENML_CBOR_MAP_VALUE);
-            if (err != CborNoError) {
-                lwm2m_free(buffer);
-                LOG_ARG("cbor_encode_int FAILED with error %d", err);
-                return -1; 
-            }
-            err = cbor_encode_uint(encoder, tlvP->value.asUnsigned);
-            if (err != CborNoError) {
-                lwm2m_free(buffer);
-                LOG_ARG("cbor_encode_int FAILED with error %d", err);
-                return -1; 
-            }
-            head = cbor_encoder_get_buffer_size(encoder, buffer);
-            break;
-        case LWM2M_TYPE_FLOAT:
-            err = cbor_encode_int(encoder, SENML_CBOR_MAP_VALUE);
-            if (err != CborNoError) {
-                lwm2m_free(buffer);
-                LOG_ARG("cbor_encode_int FAILED with error %d", err);
-                return -1; 
-            }
-            err = cbor_encode_double(encoder, tlvP->value.asFloat);
-            if (err != CborNoError) {
-                lwm2m_free(buffer);
-                LOG_ARG("cbor_encode_double FAILED with error %d", err);
-                return -1; 
-            }
-            head = cbor_encoder_get_buffer_size(encoder, buffer);
-            break;
-        case LWM2M_TYPE_BOOLEAN:
-            err = cbor_encode_int(encoder, SENML_CBOR_MAP_BOOL_VALUE);
-            if (err != CborNoError) {
-                lwm2m_free(buffer);
-                LOG_ARG("cbor_encode_int FAILED with error %d", err);
-                return -1; 
-            }
-            err = cbor_encode_boolean(encoder, tlvP->value.asBoolean);
-            if (err != CborNoError) {
-                lwm2m_free(buffer);
-                LOG_ARG("cbor_encode_boolean FAILED with error %d", err);
-                return -1; 
-            }
-            head = cbor_encoder_get_buffer_size(encoder, buffer);
-            break;
-        default:
-            lwm2m_free(buffer);
-            return -1;
-            break;
-    }
-
-    return head;
-}
-
-
 int senml_cbor_parse(const lwm2m_uri_t * uriP,
                      const uint8_t * buffer, 
                      size_t bufferLen, 
@@ -203,18 +47,18 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
     size_t dataSize = 0;
     *dataP = NULL;
     // lwm2m_data_t *data = NULL;
-    LOG("SENML CBOR parse --- >>>>>>>>>>>>> ");
-    for (uint32_t i = 0; i < bufferLen; i++)
-    {
-        lwm2m_printf("%x", buffer[i]);
-    }
-    LOG("SENML CBOR parse --- >>>>>>>>>>>>> ");
-    LOG("SENML CBOR parse --- >>>>>>>>>>>>> ");
-    for (uint32_t i = 0; i < bufferLen; i++)
-    {
-        lwm2m_printf("%x (%d)\n", buffer[i], i);
-    }
-    LOG("SENML CBOR parse --- >>>>>>>>>>>>> ");
+    // LOG("SENML CBOR parse --- >>>>>>>>>>>>> ");
+    // for (uint32_t i = 0; i < bufferLen; i++)
+    // {
+    //     lwm2m_printf("%x", buffer[i]);
+    // }
+    // LOG("SENML CBOR parse --- >>>>>>>>>>>>> ");
+    // LOG("SENML CBOR parse --- >>>>>>>>>>>>> ");
+    // for (uint32_t i = 0; i < bufferLen; i++)
+    // {
+    //     lwm2m_printf("%x (%d)\n", buffer[i], i);
+    // }
+    // LOG("SENML CBOR parse --- >>>>>>>>>>>>> ");
 
     LOG_ARG("bufferLen: %d", bufferLen);
     LOG_URI(uriP);
@@ -252,285 +96,549 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
 
     return dataSize;
 }
+/**
+ * ***********************************************************************************************************
+ * ***********************************************************************************************************
+ * ***********************************************************************************************************
+ * ***********************************************************************************************************
+ * ***********************************************************************************************************
+ * ***********************************************************************************************************
+ * ***********************************************************************************************************
+ * ***********************************************************************************************************
+ * ***********************************************************************************************************
+*/
 
-#define DEFAULT_BUFF_SIZE (1024UL)
-
-
-int senml_cbor_serializeData(const lwm2m_data_t * tlvP,
-                             uint8_t * baseUriStr,
-                             size_t baseUriLen,
-                             uri_depth_t baseLevel,
-                             const uint8_t * parentUriStr,
-                             size_t parentUriLen,
-                             uri_depth_t level,
-                             bool *baseNameOutput,
-                             uint8_t * buffer)
+int senml_cbor_encodeValue(CborEncoder* encoder,
+                              const lwm2m_data_t * tlvP,
+                              uint8_t * buffer)
 {
     CborError err;
-    CborEncoder parentEncoder;
-    uint8_t *encoderBuffer = (uint8_t *)lwm2m_malloc(1024);
-    if (encoderBuffer == NULL) {
-        LOG("lwm2m_malloc FAILED");
-        return -1;
-    }
-    cbor_encoder_init(&parentEncoder, encoderBuffer, 1024, 0);
+    int head;
 
-    // CborEncoder arrayEncoder;
-    // uint8_t * array;
-    // cbor_encoder_init(&arrayEncoder, array, 1024, 0);
-
-    // CborEncoder mapEncoder;
-    // uint8_t * map;
-    // cbor_encoder_init(&mapEncoder, map, 1024, 0);
-
-    size_t head = 0;
-
-    LOG_ARG("baseLevel = %d", baseLevel);
-    LOG_ARG("level = %d", level);
-    LOG_ARG("tlvP->type = %d", tlvP->type);
-
-    switch (level)
-    {
-        case URI_DEPTH_NONE:
-        case URI_DEPTH_OBJECT:
-        case URI_DEPTH_OBJECT_INSTANCE:
-        case URI_DEPTH_RESOURCE_INSTANCE:
-            if (!*baseNameOutput && baseUriLen > 0)
-            {
-                LOG(">>>>>>>>>>>>> CHECKPOINT 1 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-               
-                err = cbor_encoder_create_array(&parentEncoder, &parentEncoder, 1);
-                if (err != CborNoError) 
-                {
-                    LOG_ARG("cbor_encoder_create_array FAILED err=%d", err);
-                    return -1;
-                }
-                
-                err = cbor_encoder_create_map(&parentEncoder, &parentEncoder, 3);
-                if (err != CborNoError) 
-                {
-                    LOG_ARG("cbor_encoder_create_map FAILED err=%d", err);
-                    return -1;
-                }
-
-                err = cbor_encode_int(&parentEncoder, -2); ///Base name code in SENML-CBOR == (-2)
-                if (err != CborNoError) 
-                {
-                    LOG_ARG("cbor_encode_int FAILED err=%d", err);
-                    return -1;
-                }
-
-                baseUriStr[baseUriLen++] = '0';
-                lwm2m_printf("%.*s", baseUriLen, baseUriStr);
-
-                err = cbor_encode_text_string(&parentEncoder, (char *)baseUriStr, baseUriLen);
-                if (err != CborNoError) 
-                {
-                    LOG_ARG("cbor_encode_text_string FAILED err=%d", err);
-                    return -1;
-                }
-
-
-                *baseNameOutput = true;
-            }
-            
-            if (!baseUriLen || level > baseLevel)
-            {
-                LOG(">>>>>>>>>>>>> CHECKPOINT 2 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>"); 
-
-                if (!baseNameOutput)
-                {
-                    err = cbor_encoder_create_map(&parentEncoder, &parentEncoder, 2);
-                    if (err != CborNoError) 
-                    {
-                        LOG_ARG("cbor_encoder_create_map FAILED err=%d", err);
-                        return -1;
-                    }
-                }
-
-                err = cbor_encode_int(&parentEncoder, 0); /// Name code in SENML-CBOR == (0)
-                if (err != CborNoError) 
-                {
-                    LOG_ARG("cbor_encode_int FAILED err=%d", err);
-                    return -1;
-                }
-
-                err = cbor_encode_int(&parentEncoder, tlvP->id); // Assuming resource ID is used as key
-                if (err != CborNoError) 
-                {
-                    LOG_ARG("cbor_encode_int FAILED err=%d", err);
-                    return -1;
-                }
-
-            }
-
-            if (tlvP->type != LWM2M_TYPE_UNDEFINED)
-            {
-                LOG(">>>>>>>>>>>>> CHECKPOINT 3 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>"); 
-                
-                err = cbor_encode_int(&parentEncoder, tlvP->type); /// String-type in SENML-CBOR == (3)
-                if (err != CborNoError) 
-                {
-                    LOG_ARG("cbor_encode_int FAILED err=%d", err);
-                    return -1;
-                }
-                
-                head = senml_cbor_serializeValue(&parentEncoder, tlvP, encoderBuffer);
-
-                err = cbor_encoder_close_container(&parentEncoder, &parentEncoder);
-                if (err != CborNoError) 
-                {
-                    LOG_ARG("cbor_encoder_close_container FAILED err=%d", err);
-                    return -1;
-                }
-
-                head = cbor_encoder_get_buffer_size(&parentEncoder, buffer);
-            }
+    switch (tlvP->type) {
+        case LWM2M_TYPE_UNDEFINED:
+        case LWM2M_TYPE_OBJECT:
+        case LWM2M_TYPE_OBJECT_INSTANCE:
+        case LWM2M_TYPE_MULTIPLE_RESOURCE:
+            return -1;
             break;
-        case URI_DEPTH_RESOURCE:
-            LOG(">>>>>>>>>>>>> SINGLE RESOURCE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>"); 
-            err = cbor_encoder_create_array(&parentEncoder, &parentEncoder, 1);
-            if (err != CborNoError) 
-            {
-                LOG_ARG("cbor_encoder_create_array FAILED err=%d", err);
-                return -1;
+        case LWM2M_TYPE_TIME:
+        {
+            err = cbor_encode_tag(encoder, CborUnixTime_tTag);/// now unixTime is the only tag-ed type
+            if (err != CborNoError) {
+                free(buffer);
+                return err; 
             }
-            
-            err = cbor_encoder_create_map(&parentEncoder, &parentEncoder, 2);
-            if (err != CborNoError) 
-            {
-                LOG_ARG("cbor_encoder_create_map FAILED err=%d", err);
-                return -1;
+            err = cbor_encode_int(encoder, tlvP->value.asInteger);
+            if (err != CborNoError) {
+                free(buffer);
+                return err; 
             }
-
-            err = cbor_encode_int(&parentEncoder, -2); ///Base name code in SENML-CBOR == (-2)
-            if (err != CborNoError) 
-            {
-                LOG_ARG("cbor_encode_int FAILED err=%d", err);
-                return -1;
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
+            break;
+        }
+        case LWM2M_TYPE_OBJECT_LINK:
+        {
+            char tempBuffer[12]; // Sufficient buffer to hold the string representation (e.g., "65535:65535" -> 5 + 1 + 5 == 11 symbols)
+            snprintf(tempBuffer, sizeof(tempBuffer), "%u:%u", tlvP->value.asObjLink.objectId, tlvP->value.asObjLink.objectInstanceId);
+            err = cbor_encode_text_string(encoder, tempBuffer, strlen(tempBuffer));
+            if (err != CborNoError) {
+                lwm2m_free(buffer);
+                LOG_ARG("cbor_encode_text_string/obj_link FAILED with error %d", err);
+                return -1; 
             }
-
-            lwm2m_printf("%.*s", baseUriLen, baseUriStr);
-            err = cbor_encode_text_string(&parentEncoder, (char *)baseUriStr, baseUriLen);
-            if (err != CborNoError) 
-            {
-                LOG_ARG("cbor_encode_text_string FAILED err=%d", err);
-                return -1;
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
+            break;
+        }
+        case LWM2M_TYPE_OPAQUE:
+            err = cbor_encode_byte_string(encoder, tlvP->value.asBuffer.buffer, tlvP->value.asBuffer.length);
+            if (err != CborNoError) {
+                lwm2m_free(buffer);
+                LOG_ARG("cbor_encode_byte_string FAILED with error %d", err);
+                return -1; 
             }
-
-            head = senml_cbor_serializeValue(&parentEncoder, tlvP, encoderBuffer);
-            if (err != CborNoError) 
-            {
-                LOG_ARG("senml_cbor_serializeValue FAILED err=%d", err);
-                return -1;
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
+            break;
+        case LWM2M_TYPE_STRING:
+        case LWM2M_TYPE_CORE_LINK:
+            err = cbor_encode_text_string(encoder,(char *) tlvP->value.asBuffer.buffer, tlvP->value.asBuffer.length);
+            if (err != CborNoError) {
+                lwm2m_free(buffer);
+                LOG_ARG("cbor_encode_text_string FAILED with error %d", err);
+                return -1; 
             }
-
-            err = cbor_encoder_close_container(&parentEncoder, &parentEncoder);
-            if (err != CborNoError) 
-            {
-                LOG_ARG("cbor_encoder_close_container FAILED err=%d", err);
-                return -1;
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
+            break;
+        case LWM2M_TYPE_INTEGER:
+            err = cbor_encode_int(encoder,tlvP->value.asInteger);
+            if (err != CborNoError) {
+                lwm2m_free(buffer);
+                LOG_ARG("cbor_encode_int FAILED with error %d", err);
+                return -1; 
             }
-
-            err = cbor_encoder_close_container(&parentEncoder, &parentEncoder);
-            if (err != CborNoError) 
-            {
-                LOG_ARG("cbor_encoder_close_container FAILED err=%d", err);
-                return -1;
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
+            break;
+        case LWM2M_TYPE_UNSIGNED_INTEGER:
+            err = cbor_encode_uint(encoder, tlvP->value.asUnsigned);
+            if (err != CborNoError) {
+                lwm2m_free(buffer);
+                LOG_ARG("cbor_encode_int FAILED with error %d", err);
+                return -1; 
             }
-
-            head = cbor_encoder_get_buffer_size(&parentEncoder, encoderBuffer);
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
+            break;
+        case LWM2M_TYPE_FLOAT:
+            err = cbor_encode_double(encoder, tlvP->value.asFloat);
+            if (err != CborNoError) {
+                lwm2m_free(buffer);
+                LOG_ARG("cbor_encode_double FAILED with error %d", err);
+                return -1; 
+            }
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
+            break;
+        case LWM2M_TYPE_BOOLEAN:
+            err = cbor_encode_boolean(encoder, tlvP->value.asBoolean);
+            if (err != CborNoError) {
+                lwm2m_free(buffer);
+                LOG_ARG("cbor_encode_boolean FAILED with error %d", err);
+                return -1; 
+            }
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
             break;
         default:
-            LOG(">>>>>>>>>>>>> default >>>>>>>>>>>>>>>>>>>>>>>>>>>>>"); 
+            lwm2m_free(buffer);
+            return -1;
             break;
-    }///!switch-case
-
-    LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-    for (int i = 0; i <= (int)head; i++){
-        lwm2m_printf("%x", encoderBuffer[i]);
     }
-    LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-    memcpy(buffer, encoderBuffer, head);
-    return (int)head;
+    
+    return head;
 }
 
-int senml_cbor_serialize(const lwm2m_uri_t * uriP, 
+
+int senml_cbor_encodeValueWithMap(CborEncoder* encoder,
+                              const lwm2m_data_t * tlvP,
+                              uint8_t * buffer)
+{
+    CborError err;
+    int head;
+
+    LOG("senml_cbor_encodeValueWithMap ---- CHECKPOINT 1 ------------------");
+    LOG_ARG("tlvP-type = %d", &tlvP->type);
+    LOG_ARG("tlvP-type = %d", tlvP->type);
+    LOG_ARG("tlvP-type = %d", tlvP->type);
+    int type = tlvP->type;
+    LOG_ARG("tlvP-type = %d", type);
+    switch (type) {
+        case LWM2M_TYPE_UNDEFINED:
+        case LWM2M_TYPE_OBJECT:
+        case LWM2M_TYPE_OBJECT_INSTANCE:
+        case LWM2M_TYPE_MULTIPLE_RESOURCE:
+            return -1;
+            break;
+        case LWM2M_TYPE_TIME:
+        {
+            err = cbor_encode_int(encoder, SENML_CBOR_MAP_TIME);
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_int FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            // err = cbor_encode_tag(encoder, CborUnixTime_tTag);/// now unixTime is the only tag-ed type
+            // if (err != CborNoError) {
+            //     free(buffer);
+            //     return err; 
+            // }
+            err = cbor_encode_int(encoder, tlvP->value.asInteger);
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_int FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
+            break;
+        }
+        case LWM2M_TYPE_OBJECT_LINK:
+        {
+            err = cbor_encode_int(encoder, SENML_CBOR_MAP_OBJ_LINK);
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_int FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            char tempBuffer[12]; // Sufficient buffer to hold the string representation (e.g., "65535:65535" -> 5 + 1 + 5 == 11 symbols)
+            snprintf(tempBuffer, sizeof(tempBuffer), "%u:%u", tlvP->value.asObjLink.objectId, tlvP->value.asObjLink.objectInstanceId);
+            err = cbor_encode_text_string(encoder, tempBuffer, strlen(tempBuffer));
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_text_string/obj_link FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
+            break;
+        }
+        case LWM2M_TYPE_OPAQUE:
+            err = cbor_encode_int(encoder, SENML_CBOR_MAP_OPAQUE);
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_int FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            err = cbor_encode_byte_string(encoder, tlvP->value.asBuffer.buffer, tlvP->value.asBuffer.length);
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_byte_string FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
+            break;
+        case LWM2M_TYPE_STRING:
+        case LWM2M_TYPE_CORE_LINK:
+            err = cbor_encode_int(encoder, SENML_CBOR_MAP_STRING_VALUE);
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_int FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            err = cbor_encode_text_string(encoder,(char *) tlvP->value.asBuffer.buffer, tlvP->value.asBuffer.length);
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_text_string FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
+            break;
+        case LWM2M_TYPE_INTEGER:
+            err = cbor_encode_int(encoder, SENML_CBOR_MAP_VALUE);
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_int FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            err = cbor_encode_int(encoder,tlvP->value.asInteger);
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_int FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
+            break;
+        case LWM2M_TYPE_UNSIGNED_INTEGER:
+            err = cbor_encode_int(encoder, SENML_CBOR_MAP_VALUE);
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_int FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            err = cbor_encode_uint(encoder, tlvP->value.asUnsigned);
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_int FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
+            break;
+        case LWM2M_TYPE_FLOAT:
+            err = cbor_encode_int(encoder, SENML_CBOR_MAP_VALUE);
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_int FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            err = cbor_encode_double(encoder, tlvP->value.asFloat);
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_double FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
+            break;
+        case LWM2M_TYPE_BOOLEAN:
+            err = cbor_encode_int(encoder, SENML_CBOR_MAP_BOOL_VALUE);
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_int FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            err = cbor_encode_boolean(encoder, tlvP->value.asBoolean);
+            if (err != CborNoError) {
+                LOG_ARG("cbor_encode_boolean FAILED with error %d", err);
+                lwm2m_free(buffer);
+                return -1; 
+            }
+            head = cbor_encoder_get_buffer_size(encoder, buffer);
+            break;
+        default:
+            LOG_ARG("ERROR WRONG tlvP-type  %d", tlvP->type );
+            lwm2m_free(buffer);
+            return -1;
+            break;
+    }
+
+    LOG("CLOSING map --->");
+    err = cbor_encoder_close_container(encoder, encoder); /// Closing map
+    if (err != CborNoError) 
+    {
+        LOG_ARG("cbor_encoder_close_container FAILED err=%d", err);
+        return -1;
+    }
+
+    return head;
+}
+
+int senml_cbor_encodeUri(CborEncoder* encoder,
+                              const lwm2m_uri_t* uriP,
+                              uint8_t * buffer)
+{
+    CborError err;
+    uint8_t baseUriStr[URI_MAX_STRING_LEN];
+    uri_depth_t baseLevel;
+    int baseUriLen = 0;
+       
+    err = cbor_encoder_create_map(encoder, encoder, 2);/// opening map
+    if (err != CborNoError) 
+    {
+        LOG_ARG("cbor_encoder_create_map FAILED err=%d", err);
+        return -1;
+    }
+
+    err = cbor_encode_int(encoder, 0); /// Name code in SENML-CBOR == (0)
+    if (err != CborNoError) 
+    {
+        LOG_ARG("cbor_encode_int FAILED err=%d", err);
+        return -1;
+    }
+
+    baseUriLen = uri_toString(uriP, baseUriStr, URI_MAX_STRING_LEN, &baseLevel);
+    lwm2m_printf("%.*s", baseUriLen, baseUriStr);
+    LOG("senml_cbor_encodeUri ---- CHECKPOINT 1 ------------------");
+    err = cbor_encode_text_string(encoder, (char *)baseUriStr, baseUriLen);
+    if (err != CborNoError) 
+    {
+        LOG_ARG("cbor_encode_text_string FAILED err=%d", err);
+        return -1;
+    }
+    
+    return cbor_encoder_get_buffer_size(encoder, buffer);
+}
+
+#define DEFAULT_BUFF_SIZE       (1024UL)
+#define LWM2M_OBJECT            (1)
+#define LWM2M_INSTANCE          (2)
+#define LWM2M_RESOURCE          (3)
+#define LWM2M_MULTIPLE_RESOURCE (4)
+
+// Function to encode One Single Resource
+int encode_one_single_resource(const lwm2m_uri_t *uri, const lwm2m_data_t *data, uint8_t *buffer) {
+    CborEncoder encoder;
+    cbor_encoder_init(&encoder, buffer, sizeof(buffer), 0);
+    return senml_cbor_encodeValue(&encoder, data, buffer);
+}
+
+// Function to encode Resources
+int encode_resources(CborEncoder* encoder, const lwm2m_uri_t *uri, const lwm2m_data_t *data, uint8_t *buffer) {
+    LOG("encode_resources");
+    LOG_ARG("dataP->type: %d", data->type);
+    LOG_ARG("dataP->type: %d", &data->type);
+    int length = senml_cbor_encodeUri(encoder, uri, buffer);
+    length += senml_cbor_encodeValueWithMap(encoder, data, buffer);
+    return length;
+}
+
+int prv_serialize(CborEncoder* encoderP, lwm2m_uri_t *uriP, int size, const lwm2m_data_t *dataP, uint8_t *bufferP, uri_depth_t *levelP) {
+    // Iterate through the children of the Object
+    int length = 0;
+    
+    LOG_ARG("levelP: %d", *levelP);
+    LOG_ARG("dataP->type: %d", dataP->type);
+
+    for (int i = 0; i < size; i++) {
+        // const lwm2m_data_t *child_data = &data->value.asChildren.array[i];
+        lwm2m_uri_t child_uri;
+        memcpy(&child_uri, uriP, sizeof(lwm2m_uri_t));
+        // Set instance ID and resource ID
+        if (*levelP == LWM2M_OBJECT){
+            LOG_ARG("levelP instance: %d", *levelP);
+            child_uri.instanceId = dataP[i].id;
+            *levelP = LWM2M_INSTANCE;
+            length += prv_serialize(encoderP, &child_uri, dataP[i].value.asChildren.count, dataP[i].value.asChildren.array, bufferP, levelP);
+        }
+        if (*levelP == LWM2M_INSTANCE){
+            LOG_ARG("levelP resource: %d", *levelP);
+            if (dataP->type == LWM2M_TYPE_MULTIPLE_RESOURCE){
+                child_uri.resourceId = dataP[i].id;
+                *levelP = LWM2M_MULTIPLE_RESOURCE;
+                length += prv_serialize(encoderP, &child_uri, dataP[i].value.asChildren.count, dataP[i].value.asChildren.array, bufferP, levelP);
+            }
+            else
+            {
+               child_uri.resourceId = dataP[i].id;
+               length += encode_resources(encoderP, &child_uri, dataP, bufferP);
+            }
+        }
+        else if (*levelP == LWM2M_RESOURCE){
+            LOG_ARG("levelP multi-resource: %d", *levelP);
+            child_uri.resourceInstanceId = dataP[i].id;
+            length += encode_resources(encoderP, &child_uri, dataP, bufferP);
+        }
+        else if (*levelP == LWM2M_MULTIPLE_RESOURCE){
+            LOG_ARG("levelP multi-resource: %d", *levelP);
+            child_uri.resourceInstanceId = dataP[i].id;
+            length += encode_resources(encoderP, &child_uri, dataP, bufferP);
+        }
+    }
+    return length;
+}
+
+
+int senml_cbor_serialize(lwm2m_uri_t * uriP, 
                          int size,
                          const lwm2m_data_t * dataP, 
                          uint8_t ** bufferP)
 {
     size_t length = 0;
     *bufferP = NULL;
-    lwm2m_data_t * targetP;
+
+    // int baseUriLen;
+    uri_depth_t baseLevel;
+    // uint8_t baseUriStr[URI_MAX_STRING_LEN];
 
     uint8_t bufferCBOR[1024];
-    int baseUriLen;
-    int num;
-    uri_depth_t rootLevel;
-    uri_depth_t baseLevel;
-    uint8_t baseUriStr[URI_MAX_STRING_LEN];
-    const uint8_t *parentUriStr = NULL;
-    size_t parentUriLen = 0;
 
-    baseUriLen = uri_toString(uriP, baseUriStr, URI_MAX_STRING_LEN, &baseLevel);
-    if (baseUriLen < 0) return -1;
-    if (baseUriLen > 1 && baseLevel != URI_DEPTH_RESOURCE && baseLevel != URI_DEPTH_RESOURCE_INSTANCE)
-    {
-        if (baseUriLen >= URI_MAX_STRING_LEN -1) return 0;
-        baseUriStr[baseUriLen++] = '/';
-    }
+    LOG_ARG("size: %d", size);
+    LOG_URI(uriP);
+    LOG_ARG("senml_cbor_serialize: uriP.objectId = %d, ", uriP->objectId);
+    LOG_ARG("senml_cbor_serialize: uriP.instanceId = %d, ", uriP->instanceId);
+    LOG_ARG("senml_cbor_serialize: uriP.resourceId = %d, ", uriP->resourceId);
+    LOG("---------------------------");
+    LOG_ARG("senml_cbor_serialize: dataP.type = %d, ", dataP->type);
+    LOG_ARG("senml_cbor_serialize: dataP.ID = %d, ", dataP->id);
+    LOG_ARG("senml_cbor_serialize: dataP.asBoolean = %d, ", dataP->value.asBoolean);
+    LOG_ARG("senml_cbor_serialize: dataP.asInteger = %d, ", dataP->value.asInteger);
+    LOG_ARG("senml_cbor_serialize: dataP.asUnsigned = %lu, ", dataP->value.asUnsigned);
+    LOG_ARG("senml_cbor_serialize: dataP.asFloat = %f, ", dataP->value.asFloat);
+    LOG_ARG("senml_cbor_serialize: dataP.asBufferLength = %d, ", dataP->value.asBuffer.length);
+    LOG_ARG("senml_cbor_serialize: dataP.asChildrenCount = %d, ", dataP->value.asChildren.count);
+    LOG_ARG("senml_cbor_serialize: dataP.asObjLink.objectId = %d, ", dataP->value.asObjLink.objectId);
+    LOG_ARG("senml_cbor_serialize: dataP.asObjLink.objectInstanceId = %d, ", dataP->value.asObjLink.objectInstanceId);
 
-    num = json_findAndCheckData(uriP, baseLevel, size, dataP, &targetP, &rootLevel);
-    LOG_ARG("num = %d", num);
-    if (num < 0) return -1;
+    // baseUriLen = uri_toString(uriP, baseUriStr, URI_MAX_STRING_LEN, &baseLevel);
+    // LOG_ARG("baseUriLen = %d", baseUriLen);
 
-    if (baseLevel < rootLevel && baseUriLen > 1 && baseUriStr[baseUriLen - 1] != '/')
-    {
-        if (baseUriLen >= URI_MAX_STRING_LEN -1) return 0;
-        baseUriStr[baseUriLen++] = '/';
-    }
-
-    LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>baseUri 1 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");    
-    lwm2m_printf("%.*s", baseUriLen, baseUriStr);
-    LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");    
-
-    if (!baseUriLen || baseUriStr[baseUriLen - 1] != '/')
-    {
-        parentUriStr = (const uint8_t *)"/";
-        parentUriLen = 1;
-    }
+    LOG_ARG("URI objectId = %d", uriP->objectId);
+    LOG_ARG("URI instanceId = %d", uriP->instanceId);
+    LOG_ARG("URI resourceId = %d", uriP->resourceId);
+    LOG_ARG("URI resourceInstanceId = %d", uriP->resourceInstanceId);
     
-    bool baseNameOutput = false;
-    for (int i = 0; i < num && length < DEFAULT_BUFF_SIZE ; i++)
-    {
-        int res;
+    // LOG_ARG("baseLevel = %d", baseLevel);
+    if (!LWM2M_URI_IS_SET_OBJECT(uriP)){
+        //error 
+    }
+    else if (!LWM2M_URI_IS_SET_INSTANCE(uriP)){
+        baseLevel = LWM2M_OBJECT; /// aray of resources
+    }
+    else if (!LWM2M_URI_IS_SET_RESOURCE(uriP)){
+        baseLevel = LWM2M_INSTANCE; ///array
+    }
+    else if (!LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP)){
+        baseLevel = LWM2M_RESOURCE; /// single
+    }
+    else {
+        baseLevel = LWM2M_MULTIPLE_RESOURCE;
+    }
 
-        if (i != 0)
+
+    switch (baseLevel)
+    {
+        case LWM2M_OBJECT:
+        case LWM2M_INSTANCE:
         {
-            if (length + 1 > DEFAULT_BUFF_SIZE) {
-                LOG(" ERROR"); 
-                return 0;
+            CborEncoder encoder;
+            CborError err;
+            cbor_encoder_init(&encoder, bufferCBOR, sizeof(bufferCBOR), 0);
+
+            err = cbor_encoder_create_array(&encoder, &encoder, 1);
+            if (err != CborNoError) 
+            {
+                LOG_ARG("cbor_encoder_create_array FAILED err=%d", err);
+                return -1;
             }
+            length += prv_serialize(&encoder, uriP, size, dataP, bufferCBOR, &baseLevel);
+            LOG("CLOSING Array --->");
+            err = cbor_encoder_close_container(&encoder, &encoder); /// Closing array
+            if (err != CborNoError) 
+            {
+                LOG_ARG("cbor_encoder_close_container FAILED err=%d", err);
+                return -1;
+            }
+            break;
         }
+        case LWM2M_RESOURCE:
+            LOG("RESOURCE level");
+            if (dataP->type == LWM2M_TYPE_MULTIPLE_RESOURCE) 
+            {
+                LOG("LWM2M_TYPE_MULTIPLE_RESOURCE ");
+                CborEncoder encoder;
+                CborError err;
+                cbor_encoder_init(&encoder, bufferCBOR, sizeof(bufferCBOR), 0);
 
-        res = senml_cbor_serializeData(targetP + i, baseUriStr, baseUriLen,  baseLevel,
-                                parentUriStr, parentUriLen, rootLevel, &baseNameOutput,
-                                bufferCBOR + length);
-        LOG_ARG("res = %d", res);
-        LOG(">>>>>>>>>>>>> CHECKPOINT 7 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>"); 
+                err = cbor_encoder_create_array(&encoder, &encoder, 1);
+                if (err != CborNoError) 
+                {
+                    LOG_ARG("cbor_encoder_create_array FAILED err=%d", err);
+                    return -1;
+                }
+                length = prv_serialize(&encoder, uriP, size, dataP, bufferCBOR, &baseLevel);
+                LOG("CLOSING Array --->");
+                err = cbor_encoder_close_container(&encoder, &encoder); /// Closing array
+                if (err != CborNoError) 
+                {
+                    LOG_ARG("cbor_encoder_close_container FAILED err=%d", err);
+                    return -1;
+                }
+            } 
+            else 
+            {
+                LOG("encode_resource -> SINGLE DATA");
+                length += encode_one_single_resource(uriP, dataP, bufferCBOR);
+            }
+            break;
+        case LWM2M_MULTIPLE_RESOURCE:
+            if (dataP->type != LWM2M_TYPE_MULTIPLE_RESOURCE){
+                LOG(" Some Error occured!");    
+                break;
+            }
+            if (dataP->value.asChildren.count > 1) 
+            {
+                LOG("MULTIPLE level");
+                CborEncoder encoder;
+                CborError err;
+                cbor_encoder_init(&encoder, bufferCBOR, sizeof(bufferCBOR), 0);
+
+                err = cbor_encoder_create_array(&encoder, &encoder, 1);
+                if (err != CborNoError) 
+                {
+                    LOG_ARG("cbor_encoder_create_array FAILED err=%d", err);
+                    return -1;
+                }
+                length += prv_serialize(&encoder, uriP, size, dataP, bufferCBOR, &baseLevel);
+                LOG("CLOSING Array --->");
+                err = cbor_encoder_close_container(&encoder, &encoder); /// Closing array
+                if (err != CborNoError) 
+                {
+                    LOG_ARG("cbor_encoder_close_container FAILED err=%d", err);
+                    return -1;
+                }
+            }
+            else
+            {
+                LOG("encode_resource -> SINGLE DATA");
+                length += encode_one_single_resource(uriP, dataP, bufferCBOR);
+            }
+            break;
+        default:
+            break;
+    }
     
-        if (res < 0) {
-            LOG(" ERROR"); 
-            return res;
-        }
-        LOG(">>>>>>>>>>>>> CHECKPOINT 8 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>"); 
-        length += res; 
-        LOG_ARG("length = %d", length); 
-    }///!for
-    if (length + 1 > DEFAULT_BUFF_SIZE) return 0;
-    LOG(">>>>>>>>>>>>> CHECKPOINT 9 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>"); 
-
     // Allocate memory for bufferP
     *bufferP = (uint8_t *)lwm2m_malloc(length);
     if (*bufferP == NULL) {
