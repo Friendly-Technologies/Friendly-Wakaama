@@ -345,7 +345,7 @@ uint8_t observe_setParameters(lwm2m_context_t * contextP,
             attrP->toSet, attrP->toClear, attrP->minPeriod, attrP->maxPeriod, attrP->greaterThan, attrP->lessThan, attrP->step);
 
     if (!LWM2M_URI_IS_SET_INSTANCE(uriP) && LWM2M_URI_IS_SET_RESOURCE(uriP)) return COAP_400_BAD_REQUEST;
-    // if (ac_is_enabled(contextP, serverP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_WRITE_ATTRIBUTES)) return COAP_401_UNAUTHORIZED;
+    if (ac_is_enabled(contextP, serverP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_WRITE_ATTRIBUTES)) return COAP_401_UNAUTHORIZED;
 
     result = object_checkReadable(contextP, uriP, attrP);
     if (COAP_205_CONTENT != result) return result;
