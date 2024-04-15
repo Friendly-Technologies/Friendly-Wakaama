@@ -336,7 +336,7 @@ int ac_create_instance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm
     lwm2m_data_t *resourcesData, *aclData;
     uint8_t result;
 
-    LOG_ARG("Creating Access Control Object Instance for %d/%d/%d/%d", uriP->objectId, uriP->instanceId);
+    LOG_ARG("Creating Access Control Object Instance for %d/%d/%d/%d, server: %d", uriP->objectId, uriP->instanceId, (serverP)? serverP->shortID : LWM2M_MAX_ID);
 
     // Validate input parameters
     if (!contextP || !serverP || !uriP) return COAP_400_BAD_REQUEST;
@@ -425,6 +425,7 @@ int ac_delete_instance(lwm2m_context_t * contextP, lwm2m_uri_t * uriP) {
     result = acObjectP->deleteFunc(contextP, NULL, acInstance->id, acObjectP);
     aclUri.instanceId = acInstance->id;
     if (result == COAP_202_DELETED) observe_clear(contextP, &aclUri);
+    lwm2m_data_free(acInstCount, acInstances);
 
     LOG_ARG("Result of deleting Access Control Object Instance for %d/%d/%d/%d is %d", uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId, result);
 
@@ -441,7 +442,7 @@ int ac_get_instances_with_support_operation(lwm2m_context_t * contextP, lwm2m_se
     int acInstCount = 0;
     int result = COAP_205_CONTENT;
 
-    LOG_ARG("Getting instances with support operation %d for object %d", operation, targetObjP->objID);
+    LOG_ARG("Getting instances with support operation %d for object %d, server: %d", operation, targetObjP->objID, (serverP)? serverP->shortID : LWM2M_MAX_ID);
 
     // Validate input parameters
     if (!contextP || !targetObjP || operation == LWM2M_OBJ_OP_UNKNOWN || !objInstList) return COAP_400_BAD_REQUEST;
@@ -473,6 +474,9 @@ int ac_get_instances_with_support_operation(lwm2m_context_t * contextP, lwm2m_se
     // We have different logic for Access Control Object and other objects
     if (targetObjP->objID == LWM2M_AC_OBJECT_ID) result = prv_get_supported_ac_instances(acInstances, acInstCount, serverP, objInstList);
     else result = prv_get_supported_target_instances(acInstances, acInstCount, serverP, targetObjP->objID, operation, objInstList);
+    lwm2m_data_free(acInstCount, acInstances);
+
+    LOG_ARG("Result of getting instances with support operation %d for object %d is %d, %s", operation, targetObjP->objID, result, (*objInstList)? "list is not empty" : "list is empty");
 
     return result;
 }
