@@ -579,26 +579,27 @@ int senml_cbor_serialize(lwm2m_uri_t * uriP,
     LOG("CBOR cbor_serialize ");
     LOG_ARG("size: %d", size);
     LOG_URI(uriP);
-    LOG_ARG("type = %d", dataP->type);
         
     if ( (size == 1) && (uriP->resourceId != 65535) && (dataP->type != LWM2M_TYPE_MULTIPLE_RESOURCE))
     {
-        LOG("---------------------------------------- CHECKPOINT 1 - single resource");
         length = senml_cbor_encodeValue(dataP, encoderBuffer, &bufferSize);
     }
     else if (uriP != NULL && LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP)){
         size = dataP->value.asChildren.count;
         dataP = dataP->value.asChildren.array;
         if(size != 1) return -1;
-        LOG("---------------------------------------- CHECKPOINT 2 - single resource");
         length = senml_cbor_encodeValue(dataP, encoderBuffer, &bufferSize);
     }
     else 
     {
         CborEncoder encoder;
         CborError err;
+        if((size == 1) && (dataP->type == LWM2M_TYPE_MULTIPLE_RESOURCE)){
+            size = dataP->value.asChildren.count;
+            dataP = dataP->value.asChildren.array;
+            if(size != 1) return -1;
+        }
         
-        LOG("---------------------------------------- CHECKPOINT 3 - entering array");
         cbor_encoder_init(&encoder, encoderBuffer, DEFAULT_BUFF_SIZE, 0);
 
         err = cbor_encoder_create_array(&encoder, &encoder, 1);/// Opening array once
