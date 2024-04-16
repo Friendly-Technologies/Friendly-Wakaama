@@ -424,10 +424,6 @@ CborError encode_resources(CborEncoder* encoder,  lwm2m_uri_t *uriP, const lwm2m
 /// @param currId 
 /// @return 
 CborError setUrisIds(uint16_t *id1, uint16_t *id2, const uint16_t *currId ){
-    CborError err = CborNoError;
-    LOG_ARG("id1* =%d", *id1);
-    LOG_ARG("id2* =%d", *id2);
-    LOG_ARG("currId* =%d", *currId);
     if (*id1 == MSX_URI_VAL){
         *id1 = *currId;
     }
@@ -435,11 +431,10 @@ CborError setUrisIds(uint16_t *id1, uint16_t *id2, const uint16_t *currId ){
         *id2 = *currId;
     }
     else {
-        //error
-        LOG(" ERROR 1 with ids");
+        LOG(" ERROR 1 with ids"); //error
         return -1;
     }
-    return err;
+    return CborNoError;
 }
 
 /// @brief Clears the uriIds to keep the correct motion through the for cycle in the prv_serialize()
@@ -447,9 +442,6 @@ CborError setUrisIds(uint16_t *id1, uint16_t *id2, const uint16_t *currId ){
 /// @param id2 
 /// @return 
 CborError cleanUrisIds(uint16_t* id1, uint16_t* id2){
-    LOG_ARG("id1* =%d", *id1);
-    LOG_ARG("id2* =%d", *id2);
-    CborError err = CborNoError;
     if (*id1 != MSX_URI_VAL){
         *id1 = MSX_URI_VAL;
     }
@@ -457,9 +449,10 @@ CborError cleanUrisIds(uint16_t* id1, uint16_t* id2){
         *id2 = MSX_URI_VAL;
     }
     else {
-        LOG(" ERROR  2 with ids");
+        LOG(" ERROR  2 with ids"); //error
+        return -1;
     }
-    return err;
+    return CborNoError;
 }
 
 /// @brief Function for the recursive calling to serialize the array of data
@@ -481,7 +474,6 @@ CborError prv_serialize(CborEncoder* encoderP, lwm2m_uri_t* uriP, const lwm2m_da
             case LWM2M_TYPE_OBJECT_INSTANCE:
             case LWM2M_TYPE_MULTIPLE_RESOURCE:
                 {
-                    LOG_ARG("ID = %d", cur->id ); // local variable | array of 4 IDs
                     err = setUrisIds(&(uriP->instanceId), &(uriP->resourceId), &(cur->id));
                     if (err != CborNoError) 
                     {
@@ -517,7 +509,6 @@ CborError prv_serialize(CborEncoder* encoderP, lwm2m_uri_t* uriP, const lwm2m_da
                     LOG_ARG("checkUrisIds FAILED err=%d", err);
                     return -1;
                 }
-                LOG_ARG("encode_resources called i=%d", i);     
                 err = encode_resources(encoderP, uriP, cur);
                 if (err != CborNoError) 
                 {
@@ -548,7 +539,6 @@ int putEncodedIntoBuffer(uint8_t** bufferP, size_t length, uint8_t* encoderBuffe
         return -1; 
     }
     
-    LOG_ARG("length = %d", length);     
     LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>final resulting buffer>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
     for (int i = 0; i < (int)length; i++){
         lwm2m_printf("%02x", encoderBuffer[i]);
