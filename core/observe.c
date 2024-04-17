@@ -345,6 +345,7 @@ uint8_t observe_setParameters(lwm2m_context_t * contextP,
             attrP->toSet, attrP->toClear, attrP->minPeriod, attrP->maxPeriod, attrP->greaterThan, attrP->lessThan, attrP->step);
 
     if (!LWM2M_URI_IS_SET_INSTANCE(uriP) && LWM2M_URI_IS_SET_RESOURCE(uriP)) return COAP_400_BAD_REQUEST;
+    if (ac_is_enabled(contextP, serverP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_WRITE_ATTRIBUTES)) return COAP_401_UNAUTHORIZED;
 
     result = object_checkReadable(contextP, uriP, attrP);
     if (COAP_205_CONTENT != result) return result;
@@ -541,7 +542,6 @@ void observe_step(lwm2m_context_t * contextP,
         if (LWM2M_URI_IS_SET_RESOURCE(&targetP->uri))
         {
             lwm2m_data_t *valueP;
-
             if (COAP_205_CONTENT != object_readData(contextP, NULL, &targetP->uri, &size, &dataP)) continue;
             valueP = dataP;
 #ifndef LWM2M_VERSION_1_0
@@ -797,7 +797,7 @@ void observe_step(lwm2m_context_t * contextP,
                         }
                         else
                         {
-                            if (COAP_205_CONTENT != object_read(contextP, NULL, &targetP->uri, NULL, 0, &(watcherP->format), &buffer, &length))
+                            if (COAP_205_CONTENT != object_read(contextP, watcherP->server, &targetP->uri, NULL, 0, &(watcherP->format), &buffer, &length))
                             {
                                 buffer = NULL;
                                 break;
