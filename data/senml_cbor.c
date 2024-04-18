@@ -47,20 +47,14 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
     size_t dataSize = 0;
     *dataP = NULL;
     // lwm2m_data_t *data = NULL;
-    // LOG("SENML CBOR parse --- >>>>>>>>>>>>> ");
-    // for (uint32_t i = 0; i < bufferLen; i++)
-    // {
-    //     lwm2m_printf("%x", buffer[i]);
-    // }
-    // LOG("SENML CBOR parse --- >>>>>>>>>>>>> ");
-    // LOG("SENML CBOR parse --- >>>>>>>>>>>>> ");
-    // for (uint32_t i = 0; i < bufferLen; i++)
-    // {
-    //     lwm2m_printf("%x (%d)\n", buffer[i], i);
-    // }
-    // LOG("SENML CBOR parse --- >>>>>>>>>>>>> ");
-
     LOG_ARG("bufferLen: %d", bufferLen);
+    LOG("SENML CBOR parse --- >>>>>>>>>>>>> ");
+    for (uint32_t i = 0; i < bufferLen; i++)
+    {
+        lwm2m_printf("%02x", buffer[i]);
+    }
+    LOG("SENML CBOR parse --- >>>>>>>>>>>>> ");
+    
     LOG_URI(uriP);
     if (uriP == NULL){
         return -1;
@@ -96,17 +90,6 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
 
     return dataSize;
 }
-/**
- * ***********************************************************************************************************
- * ***********************************************************************************************************
- * ***********************************************************************************************************
- * ***********************************************************************************************************
- * ***********************************************************************************************************
- * ***********************************************************************************************************
- * ***********************************************************************************************************
- * ***********************************************************************************************************
- * ***********************************************************************************************************
-*/
 
 /// @brief Function to encode a single simple value of data -> just like a simple CBOR format
 /// For example:
@@ -532,6 +515,49 @@ CborError prv_serialize(CborEncoder* encoderP, lwm2m_uri_t* uriP, const lwm2m_da
     return err;
 }
 
+/// @brief 
+/// @param  
+/// @param  
+/// @param  
+/// @return 
+size_t get_array_items_count(const lwm2m_data_t *dataP,  int size){
+    size_t mapsCount = 0;
+    for (int i = 0 ; i < size; i++)
+    {
+        const lwm2m_data_t * cur = &dataP[i];
+        switch (cur->type)
+        {
+            case LWM2M_TYPE_OBJECT_INSTANCE:
+            case LWM2M_TYPE_MULTIPLE_RESOURCE:
+                {
+                    mapsCount += get_array_items_count(cur->value.asChildren.array, cur->value.asChildren.count);
+                }
+                break;
+            case LWM2M_TYPE_STRING:
+            case LWM2M_TYPE_OPAQUE:
+            case LWM2M_TYPE_INTEGER:
+            case LWM2M_TYPE_UNSIGNED_INTEGER:
+            case LWM2M_TYPE_BOOLEAN:
+            case LWM2M_TYPE_FLOAT:
+            case LWM2M_TYPE_TIME:
+            case LWM2M_TYPE_OBJECT_LINK:
+            case LWM2M_TYPE_CORE_LINK:
+                mapsCount++;
+                break;
+            default:
+                return (-1);
+                break;
+        }///!switch
+    }///!for
+  
+    return mapsCount;
+}
+
+/// @brief Places the encoded SENML-CBOR data into the prepared buffer
+/// @param bufferP 
+/// @param length 
+/// @param encoderBuffer 
+/// @return 
 int putEncodedIntoBuffer(uint8_t** bufferP, size_t length, uint8_t* encoderBuffer){
     *bufferP = (uint8_t *)lwm2m_malloc(length);
     if (bufferP == NULL) {
@@ -584,15 +610,18 @@ int senml_cbor_serialize(lwm2m_uri_t * uriP,
     {
         CborEncoder encoder;
         CborError err;
+        size_t arraySize = 0;
         if((size == 1) && (dataP->type == LWM2M_TYPE_MULTIPLE_RESOURCE)){
             size = dataP->value.asChildren.count;
             dataP = dataP->value.asChildren.array;
             if(size != 1) return -1;
         }
-        
+
+        arraySize = get_array_items_count(dataP, size);
+        LOG_ARG("array size = %d", arraySize);
         cbor_encoder_init(&encoder, encoderBuffer, DEFAULT_BUFF_SIZE, 0);
 
-        err = cbor_encoder_create_array(&encoder, &encoder, 1);/// Opening array once
+        err = cbor_encoder_create_array(&encoder, &encoder, arraySize);/// Opening array once
         if (err != CborNoError) 
         {
             LOG_ARG("cbor_encoder_create_array FAILED err=%d", err);
