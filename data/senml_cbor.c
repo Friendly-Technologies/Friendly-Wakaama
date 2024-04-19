@@ -1,6 +1,6 @@
 #include "internals.h"
 #include <cbor.h>
-
+#include <ctype.h>
 
 /**
  * SENML CBOR Representation: integers for map keys:
@@ -45,111 +45,143 @@ CborError prv_parse_map(CborValue* array, lwm2m_data_t * dataP )
 {
     CborValue map;
     CborError err;
+    CborType type;
     size_t len;
 
-    err = cbor_value_get_map_length(array, &len);
-    if (err != CborNoError)
+    type = cbor_value_get_type(array);
+    LOG_ARG("type 2 = %x(%d)", type, type );
+    if (type == CborMapType) 
     {
-        LOG_ARG("cbor_value_get_map_length FAILED with error %d", err);
-        return -1;
-    }
-    LOG_ARG("map length = %d", len);
-    
-    err = cbor_value_enter_container(array, &map);
-    if (err != CborNoError)
-    {
-        LOG_ARG("cbor_value_enter_container FAILED with error %d", err);
-        return -1;
-    }
-    uint64_t tempInt;
-
-    if (cbor_value_is_unsigned_integer(&map)){
-        err = cbor_value_get_uint64(&map, &tempInt);
+        err = cbor_value_get_map_length(array, &len);
         if (err != CborNoError)
         {
-            LOG_ARG("cbor_value_get_uint64 FAILED with error %d", err);
+            LOG_ARG("cbor_value_get_map_length FAILED with error %d", err);
             return -1;
         }
-    }
-    LOG_ARG("tempInt = %d", tempInt);
-    err = cbor_value_advance_fixed(&map);
-    if (err != CborNoError)
-    {
-        LOG("Error: cbor_value_advance_fixed \n");
-        return -1;
-    }
-    
-    if (tempInt == SENML_CBOR_MAP_NAME)
-    {
-        char *temp = NULL;
-        size_t temPlen = 0;
+        LOG_ARG("map length = %d", len);
         
-        err = cbor_value_get_string_length(&map, &temPlen);
-        if (err != CborNoError) {
-            LOG_ARG("Error%d: cbor_value_calculate_string_length\n", err);
-            return -1;
-        }
-        LOG_ARG("string length = %d", temPlen);
-
-        temp = (char *)lwm2m_malloc(temPlen);
-        if (temp == NULL) {
-            LOG("Error: Memory allocation failed\n");
-            return -1;
-        }
-
-        err = cbor_value_dup_text_string(&map, &temp, &temPlen, &map);
-        if (err!= CborNoError){
-            LOG_ARG("Error%d: cbor_value_dup_text_string\n", err);
-            return -1;
-        }
-
-        uint64_t mapVal;
-        if (cbor_value_is_unsigned_integer(&map))
-        {
-            err = cbor_value_get_uint64(&map, &mapVal);
-            if (err != CborNoError)
-            {
-                LOG_ARG("cbor_value_get_uint64 FAILED with error %d", err);
-                return -1;
-            }
-        }
-        LOG_ARG("mapVal = %d", mapVal);
-        err = cbor_value_advance_fixed(&map);
+        err = cbor_value_enter_container(array, &map);///Entering the map-container
         if (err != CborNoError)
         {
-            LOG("Error: cbor_value_advance_fixed \n");
+            LOG_ARG("cbor_value_enter_container FAILED with error %d", err);
             return -1;
         }
-
-        if (mapVal == SENML_CBOR_MAP_VALUE)
-        {
-            if (cbor_value_is_unsigned_integer(&map))
+        
+            uint64_t tempInt;
+            if (cbor_value_is_unsigned_integer(&map))///Getting map-key of uri
             {
-                err = cbor_value_get_uint64(&map, &dataP->value.asUnsigned);
+                err = cbor_value_get_uint64(&map, &tempInt);
                 if (err != CborNoError)
                 {
                     LOG_ARG("cbor_value_get_uint64 FAILED with error %d", err);
-                    lwm2m_free(dataP);
                     return -1;
                 }
-                dataP->type = LWM2M_TYPE_UNSIGNED_INTEGER;
-                LOG_ARG("inData-value = %d", dataP->value.asUnsigned);
             }
-            else {
-                err = cbor_value_get_int64_checked(&map, &dataP->value.asInteger);
-                if (err != CborNoError)
+            LOG_ARG("tempInt = %d", tempInt);
+            err = cbor_value_advance_fixed(&map);
+            if (err != CborNoError)
+            {
+                LOG("Error: cbor_value_advance_fixed \n");
+                return -1;
+            }
+            
+                if (tempInt == SENML_CBOR_MAP_NAME)
                 {
-                    LOG_ARG("cbor_value_get_int64_checked FAILED with error %d", err);
-                    lwm2m_free(dataP);
-                    return -1;
-                }
-                dataP->type = LWM2M_TYPE_INTEGER;
-                LOG_ARG("inData-value = %d", dataP->value.asInteger);
-            } 
-        }///!mapValue
-        LOG_ARG("map-remaining = %d", map.remaining);
-    }///!mapName
-    return CborNoError;
+                    char *uriStr = NULL;
+                    size_t uriStrlen = 0;
+                    
+                    err = cbor_value_get_string_length(&map, &uriStrlen); /// getting uri-length
+                    if (err != CborNoError) {
+                        LOG_ARG("Error%d: cbor_value_calculate_string_length\n", err);
+                        return -1;
+                    }
+                    LOG_ARG("string length = %d", uriStrlen);
+
+                    uriStr = (char *)lwm2m_malloc(uriStrlen);
+                    if (uriStr == NULL) {
+                        LOG("Error: Memory allocation failed\n");
+                        return -1;
+                    }
+                    
+                    err = cbor_value_dup_text_string(&map, &uriStr, &uriStrlen, &map); /// getting uri itself
+                    if (err!= CborNoError){
+                        LOG_ARG("Error%d: cbor_value_dup_text_string\n", err);
+                        return -1;
+                    }
+                    lwm2m_printf("%.*s", uriStrlen, uriStr);
+                    char *endPtr;
+                    char *lastNumberStr = uriStr;
+                    for (size_t i = uriStrlen - 1; i > 0; i--)
+                    {
+                        if (!isdigit(uriStr[i]))
+                        {
+                            lastNumberStr = &uriStr[i + 1];
+                            break;
+                        }
+                    }
+
+                    long lastNumber = strtol(lastNumberStr, &endPtr, 10); // Parse the last number
+                    if (endPtr != lastNumberStr && *endPtr == '\0')
+                    {
+                        dataP->id = (int)lastNumber; // Assign the last number to dataP->id
+                    }
+                    else
+                    {
+                        LOG("Error: Failed to parse the last number from uriStr\n");
+                        lwm2m_free(uriStr);
+                        return -1;
+                    }
+
+                    uint64_t mapVal;
+                    if (cbor_value_is_unsigned_integer(&map))///getting map-key for the value
+                    {
+                        err = cbor_value_get_uint64(&map, &mapVal);
+                        if (err != CborNoError)
+                        {
+                            LOG_ARG("cbor_value_get_uint64 FAILED with error %d", err);
+                            return -1;
+                        }
+                    }
+                    LOG_ARG("mapVal = %d", mapVal);
+                    err = cbor_value_advance_fixed(&map);
+                    if (err != CborNoError)
+                    {
+                        LOG("Error: cbor_value_advance_fixed \n");
+                        return -1;
+                    }
+
+                    if (mapVal == SENML_CBOR_MAP_VALUE)
+                    {
+                        ///TODO add cases and function for parsing the values itself
+                        if (cbor_value_is_unsigned_integer(&map))
+                        {
+                            err = cbor_value_get_uint64(&map, &dataP->value.asUnsigned);
+                            if (err != CborNoError)
+                            {
+                                LOG_ARG("cbor_value_get_uint64 FAILED with error %d", err);
+                                lwm2m_free(dataP);
+                                return -1;
+                            }
+                            dataP->type = LWM2M_TYPE_UNSIGNED_INTEGER;
+                            LOG_ARG("dataP-value = %d", dataP->value.asUnsigned);
+                        }
+                        else {
+                            err = cbor_value_get_int64_checked(&map, &dataP->value.asInteger);
+                            if (err != CborNoError)
+                            {
+                                LOG_ARG("cbor_value_get_int64_checked FAILED with error %d", err);
+                                lwm2m_free(dataP);
+                                return -1;
+                            }
+                            dataP->type = LWM2M_TYPE_INTEGER;
+                            LOG_ARG("dataP-value = %d", dataP->value.asInteger);
+                        } 
+                    }///!mapValue
+            LOG_ARG("map-remaining = %d", map.remaining);
+                }///!mapName
+        return CborNoError;
+    }///!mapType
+    else return -1;
 }
 
 int senml_cbor_parse(const lwm2m_uri_t * uriP,
@@ -197,25 +229,6 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
         err = cbor_value_get_array_length(&array, &arrLen);
         LOG_ARG("array length = %d", arrLen);
 
-        inData = lwm2m_data_new(arrLen);
-        if (inData == NULL) {
-            lwm2m_free(inData);
-            LOG("lwm2m_data_new FAILED");
-            return -1; 
-        }
-
-        if (LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP)){
-            inData->id = uriP->resourceInstanceId;
-        }
-        else if (LWM2M_URI_IS_SET_RESOURCE(uriP)){
-            inData->id = uriP->resourceId;
-        }
-        else {
-            LOG("cbor_parse FAILED with wrong URI");
-            LOG_URI(uriP);
-            return -1;
-        }
-
         err = cbor_value_enter_container(&array, &array); /// Enter the array
         if (err != CborNoError)
         {
@@ -223,12 +236,41 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
             return -1;
         }
 
-        type = cbor_value_get_type(&array);
-        LOG_ARG("type 2 = %x(%d)", type, type );
-        if (type == CborMapType) 
+        if (arrLen > 0) 
         {
-            prv_parse_map(&array, inData);
-        }///!mapType
+            inData = lwm2m_data_new(1);/// creating main-array-lwm2m_data struct
+            if (inData == NULL) {
+                LOG("lwm2m_data_new FAILED");
+                return -1; 
+            }
+            if (arrLen == 1){
+                prv_parse_map(&array, inData); /// only one data
+            }
+            else 
+            {
+                inData->type = LWM2M_TYPE_MULTIPLE_RESOURCE;
+                inData->value.asChildren.array = lwm2m_data_new(arrLen);
+                if (inData->value.asChildren.array == NULL) {
+                    LOG("lwm2m_data_new for children array FAILED");
+                    lwm2m_free(inData);
+                    return -1;
+                }
+                for (size_t i = 0; i < arrLen; i++) 
+                {
+                    lwm2m_data_t *mapData = lwm2m_data_new(1);
+                    if (mapData == NULL) {
+                        LOG("lwm2m_data_new for mapData FAILED");
+                        lwm2m_free(inData->value.asChildren.array);
+                        lwm2m_free(inData);
+                        return -1;
+                    }
+                    prv_parse_map(&array, mapData);
+                    inData->value.asChildren.array[i] = *mapData;
+                    lwm2m_free(mapData);
+                }///!for
+                inData->value.asChildren.count = arrLen;
+            }/// arrLen > 1
+        }///!arrLen > 0
     }///!arrayType
     else {
         LOG_ARG("type is not CborArrayType, (%d)", type);
