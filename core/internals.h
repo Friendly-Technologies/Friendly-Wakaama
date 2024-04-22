@@ -138,6 +138,8 @@
 #endif
 
 #define LWM2M_DEFAULT_LIFETIME  86400
+// 0.85 is coefficient for lifetime safe interval
+#define LWM2M_COMPUTE_LIFETIME(lifetime_sec) ((time_t)((lifetime_sec) * 0.85))
 
 #ifdef LWM2M_REG_PREFERRED_CONTENT_TYPE
 #define REG_LWM2M_RESOURCE_TYPE     ">;rt=\"oma.lwm2m\";ct=" VALUE_TO_STRING(LWM2M_REG_PREFERRED_CONTENT_TYPE) ","
