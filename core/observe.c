@@ -426,6 +426,20 @@ uint8_t observe_setParameters(lwm2m_context_t * contextP,
         }
     }
 
+    // If only one of the two periods is present, set the other one to the same value
+    if ((watcherP->parameters->toSet & LWM2M_ATTR_FLAG_MAX_PERIOD) &&
+        !(watcherP->parameters->toSet & LWM2M_ATTR_FLAG_MIN_PERIOD))
+    {
+        watcherP->parameters->minPeriod = watcherP->parameters->maxPeriod;
+        watcherP->parameters->toSet |= LWM2M_ATTR_FLAG_MIN_PERIOD;
+    }
+    else if (!(watcherP->parameters->toSet & LWM2M_ATTR_FLAG_MAX_PERIOD) &&
+             (watcherP->parameters->toSet & LWM2M_ATTR_FLAG_MIN_PERIOD))
+    {
+        watcherP->parameters->maxPeriod = watcherP->parameters->minPeriod;
+        watcherP->parameters->toSet |= LWM2M_ATTR_FLAG_MAX_PERIOD;
+    }
+
     LOG_ARG("Final toSet: %08X, minPeriod: %d, maxPeriod: %d, greaterThan: %f, lessThan: %f, step: %f",
             watcherP->parameters->toSet, watcherP->parameters->minPeriod, watcherP->parameters->maxPeriod, watcherP->parameters->greaterThan, watcherP->parameters->lessThan, watcherP->parameters->step);
 
