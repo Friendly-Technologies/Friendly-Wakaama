@@ -220,7 +220,7 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
     lwm2m_uri_t uri;
     lwm2m_data_t* newData;
 
-    LOG("CHECKPOINT 1 -------------------------------------------");
+    LOG_ARG("array.remaining=%d", array->remaining);
     err = cbor_value_enter_container(array, &map); // Enter each map
     if (err != CborNoError)
     {
@@ -230,16 +230,12 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
 
     while (!cbor_value_at_end(&map)) 
     {
-        LOG("CHECKPOINT 2 -------------------------------------------");
-                
-        // Skip the key
-        err = cbor_value_advance(&map);
+        err = cbor_value_advance(&map);    // Skip the key
         if (err != CborNoError) {
             printf("Error advancing to value\n");
             return -1;
         }  
-        // Get the value
-        CborType typeMap = cbor_value_get_type(&map);
+        CborType typeMap = cbor_value_get_type(&map); // Get the value
         if (typeMap == CborTextStringType) 
         {
             char *uriStr = NULL;
@@ -264,7 +260,7 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
                 return -1;
             }
 
-            lwm2m_printf("%.*s", uriStrlen, uriStr);///TODO parse and use only the 4th -> resourceINstance ID
+            lwm2m_printf("%.*s", uriStrlen, uriStr);
             
             int slashCount = countBackSlashes(uriStr);
             LOG_ARG("slashCount = %d\n", slashCount);
@@ -274,7 +270,6 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
             newData = NULL;
 
             if (slashCount == 3){
-                LOG_ARG("slashCount 2 = %d\n", slashCount);
                 for (size_t i = 0; i < sizeDataP; i++){
                     if (dataP[i].id == 65535){
                         newData = &dataP[i];
@@ -284,7 +279,6 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
                 }
             }///!slashCount3
             else if (slashCount == 4){
-                LOG_ARG("slashCount 2 = %d\n", slashCount);
                 for (size_t i = 0; i < sizeDataP; i++){
                     if (dataP[i].id == uri.resourceId){
                         newData = &dataP[i];
@@ -335,25 +329,15 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
             LOG_ARG("newData.integer = %d", newData->value.asInteger);
         }///!typeMap
     }///!while not end map
-
-    LOG("CHECKPOINT 4 -------------------------------------------");
     err = cbor_value_leave_container(array, &map); /// leave the map
     if (err != CborNoError)
     {
         LOG_ARG("cbor_value_leave_container array FAILED with error %d", err);
         return -1;
     }
-    LOG("CHECKPOINT 5 -------------------------------------------");
     /// Move to the next map
-    if (array->remaining > 1){
-        err = cbor_value_advance(array);
-        if (err != CborNoError) {
-            LOG_ARG("cbor_value_advance array FAILED with error %d", err);
-            return -1;
-        }
-    }
-    // memcpy(dataP, newData, sizeDataP);
-    LOG_ARG("dataP.integer = %d", dataP->value.asInteger);
+    LOG_ARG("array.remaining=%d", array->remaining);
+    
     return CborNoError;
 }
 
@@ -396,9 +380,7 @@ size_t prv_count_resources_in_array(CborValue* array)
                 char *text;
                 
                 cbor_value_dup_text_string(&map, &text, &len, NULL);
-                // Count backslashes in the string
                 int backslashCount = countBackSlashes(text);
-                // Check if the count is equal to 3 (indicating a resource)
                 if (backslashCount == 3) {
                     resourceCount++;
                 }
@@ -462,7 +444,6 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
     LOG_ARG("senml_cbor_parse: uriP.instanceId = %d, ", uriP->instanceId);
     LOG_ARG("senml_cbor_parse: uriP.resourceId = %d, ", uriP->resourceId);
     LOG_ARG("senml_cbor_parse: uriP.resourceInstId = %d, ", uriP->resourceInstanceId);
-    LOG("---------------------------");
     
     err = cbor_parser_init(buffer, bufferLen, 0, &parser, &array);    
     if (err != CborNoError)
@@ -472,7 +453,7 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
     }
 
     CborType type = cbor_value_get_type(&array);
-    LOG_ARG("type = %x(%d)", type, type);
+
     if (type == CborArrayType) 
     {
         err = cbor_value_get_array_length(&array, &arrLen);
@@ -489,7 +470,6 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
 
         if (arrLen > 0) 
         {
-            /// Todo count resources in array, get back to the beginning of the array 5-resources, 8- array
             resCount = prv_count_resources_in_array(&array);
             LOG_ARG("resources quantity = %d", resCount);                                 
 
@@ -500,12 +480,11 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
             }
 
             for (size_t i = 0; i < resCount; i++){
-                inData[i].id = 65535;
+                inData[i].id = 65535; /// filing the ids with the un-set value 
             }
 
             for (size_t i = 0; i < arrLen; i++) 
             {
-                LOG("CHECKPOINT 0 ................................................................");
                 err = prv_parse_resources(&array, inData, resCount);
                 if (err != CborNoError)
                 {
