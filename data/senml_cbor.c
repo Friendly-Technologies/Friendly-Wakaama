@@ -212,7 +212,6 @@ CborError prv_parse_value(CborValue* valueP, uint64_t mapValP, lwm2m_data_t *dat
     return err;
 }
 
-
 CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t sizeDataP)
 {
     CborValue map;
@@ -271,7 +270,7 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
 
             if (slashCount == 3){
                 for (size_t i = 0; i < sizeDataP; i++){
-                    if (dataP[i].id == 65535){
+                    if (dataP[i].id == MAX_URI_VAL){
                         newData = &dataP[i];
                         newData->id = uri.resourceId;
                         break;
@@ -287,7 +286,7 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
                 }
                 if (newData == NULL){
                     for (size_t i = 0; i < sizeDataP; i++){
-                        if (dataP[i].id == 65535){
+                        if (dataP[i].id == MAX_URI_VAL){
                             newData = &dataP[i];
                             newData->id = uri.resourceId;
                             break;
@@ -341,11 +340,13 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
     return CborNoError;
 }
 
-size_t prv_count_resources_in_array(CborValue* array) 
+size_t prv_count_resources_in_array(CborValue* array, size_t length) 
 {
     CborValue map;
     CborError err;
     CborValue arrayStart; ///creating a separate cbor-value struct to save the array's start
+    uint16_t idsArray[length]; // Array to store IDs
+    size_t numIds;
     int resourceCount = 0;
 
     err = cbor_value_enter_container(array, array); // Enter the CBOR array
@@ -385,7 +386,20 @@ size_t prv_count_resources_in_array(CborValue* array)
                     resourceCount++;
                 }
                 else if (backslashCount == 4){
-                    ///todo check IDs
+                    lwm2m_uri_t uriFromMap;
+                    lwm2m_stringToUri(text, len, &uriFromMap);
+                    bool duplicateFound = false;
+                    for (size_t i = 0; i < numIds; i++) {
+                        if (idsArray[i] == uriFromMap.resourceId)
+                        {
+                            duplicateFound = true;
+                            resourceCount++;
+                            break;
+                        }
+                    }///!for
+                    if (!duplicateFound && numIds < length){
+                        idsArray[numIds++] = uriFromMap.resourceId;
+                    }
                 }
     
             }///!typeMap
@@ -470,7 +484,7 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
 
         if (arrLen > 0) 
         {
-            resCount = prv_count_resources_in_array(&array);
+            resCount = prv_count_resources_in_array(&array, arrLen);
             LOG_ARG("resources quantity = %d", resCount);                                 
 
             inData = lwm2m_data_new(resCount);/// creating main-array-lwm2m_data struct
@@ -480,7 +494,7 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
             }
 
             for (size_t i = 0; i < resCount; i++){
-                inData[i].id = 65535; /// filing the ids with the un-set value 
+                inData[i].id = MAX_URI_VAL; /// filing the ids with the un-set value 
             }
 
             for (size_t i = 0; i < arrLen; i++) 
