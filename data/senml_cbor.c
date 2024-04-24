@@ -1,6 +1,6 @@
 #include "internals.h"
 #include <cbor.h>
-#include <ctype.h>
+#include <ctype.h> /// TODO check if this is needed
 
 /**
  * SENML CBOR Representation: integers for map keys:
@@ -41,38 +41,6 @@
 #define DEFAULT_BUFF_SIZE           (1024UL)
 #define MAX_URI_VAL                 (65535UL)
 
-
-lwm2m_uri_t convertUriToStruct(const char *uriString) {
-    lwm2m_uri_t uriStruct;
-    memset(&uriStruct, 0, sizeof(lwm2m_uri_t)); // Initialize struct with zeros
-    
-    char *token;
-    char *rest = (char *)uriString;
-    int count = 0;
-
-    // Parse the URI string using '/' as delimiter
-    while ((token = strtok_r(rest, "/", &rest))) {
-        switch (count) {
-            case 1:
-                uriStruct.objectId = atoi(token);
-                break;
-            case 2:
-                uriStruct.instanceId = atoi(token);
-                break;
-            case 3:
-                uriStruct.resourceId = atoi(token);
-                break;
-            case 4:
-                uriStruct.resourceInstanceId = atoi(token);
-                break;
-            default:
-                break;
-        }
-        count++;
-    }
-
-    return uriStruct;
-}
 
 /// Function to count backslashes in the string
 int countBackSlashes(const char* str) {
@@ -301,7 +269,8 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
             int slashCount = countBackSlashes(uriStr);
             LOG_ARG("slashCount = %d\n", slashCount);
             
-            uri = convertUriToStruct(uriStr);
+            lwm2m_stringToUri(uriStr, uriStrlen, &uri );
+            LOG_URI(&uri);
             newData = NULL;
 
             if (slashCount == 3){
@@ -363,11 +332,10 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
                 LOG("Error: prv_parse_value %d\n, err");
                 return -1;
             }
-            LOG_ARG("map-remaining = %d", map.remaining);
             LOG_ARG("newData.integer = %d", newData->value.asInteger);
         }///!typeMap
     }///!while not end map
-    
+
     LOG("CHECKPOINT 4 -------------------------------------------");
     err = cbor_value_leave_container(array, &map); /// leave the map
     if (err != CborNoError)
@@ -376,7 +344,6 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
         return -1;
     }
     LOG("CHECKPOINT 5 -------------------------------------------");
-    LOG_ARG("array->remaining %d", array->remaining);
     /// Move to the next map
     if (array->remaining > 1){
         err = cbor_value_advance(array);
@@ -385,7 +352,7 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
             return -1;
         }
     }
-    memcpy(dataP, newData, sizeDataP);
+    // memcpy(dataP, newData, sizeDataP);
     LOG_ARG("dataP.integer = %d", dataP->value.asInteger);
     return CborNoError;
 }
@@ -461,7 +428,6 @@ size_t prv_count_resources_in_array(CborValue* array)
         }
     }///!while not end of array
     *array = arrayStart; /// Reset the array pointer to the starting position
-    LOG_ARG("Array-remaining 2 = %d", array->remaining);
 
     return resourceCount;
 }
@@ -540,7 +506,12 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
             for (size_t i = 0; i < arrLen; i++) 
             {
                 LOG("CHECKPOINT 0 ................................................................");
-                prv_parse_resources(&array, inData, resCount);
+                err = prv_parse_resources(&array, inData, resCount);
+                if (err != CborNoError)
+                {
+                    LOG_ARG("prv_parse_resources FAILED with error %d", err);
+                    return -1;
+                }
             }///!for
 
             if (!LWM2M_URI_IS_SET_INSTANCE(uriP)){
@@ -584,6 +555,7 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
         LOG_ARG("type is not CborArrayType, (%d)", type);
         return -1;
     }
+    LOG(" LAST CHECKPOINT >>>>>>>>>>>>>>>> -------------------------------------- ");
     LOG_ARG("senml_cbor_parse:2 dataP.type = %d, ", inData->type);
     LOG_ARG("senml_cbor_parse:2 dataP.ID = %d, ", inData->id);
     LOG_ARG("senml_cbor_parse:2 dataP.asBoolean = %d, ", inData->value.asBoolean);
