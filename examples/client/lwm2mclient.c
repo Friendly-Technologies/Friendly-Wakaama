@@ -813,7 +813,7 @@ static void prv_display_objects(lwm2m_context_t *lwm2mH, char *buffer, void *use
             case LWM2M_SERVER_OBJECT_ID:
                 display_server_object(object);
                 break;
-            case LWM2M_ACL_OBJECT_ID:
+            case LWM2M_AC_OBJECT_ID:
                 break;
             case LWM2M_DEVICE_OBJECT_ID:
                 display_device_object(object);

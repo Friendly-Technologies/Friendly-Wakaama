@@ -5,6 +5,8 @@ set(WAKAAMA_EXAMPLE_DIRECTORY "${WAKAAMA_TOP_LEVEL_DIRECTORY}/examples")
 set(WAKAAMA_EXAMPLE_SHARED_DIRECTORY "${WAKAAMA_EXAMPLE_DIRECTORY}/shared")
 set(WAKAAMA_LIBS_DIRECTORY "${WAKAAMA_TOP_LEVEL_DIRECTORY}/libs")
 
+include(${WAKAAMA_LIBS_DIRECTORY}/tinycbor.cmake)
+
 # Add data format source files to an existing target.
 #
 # Separated from target_sources_wakaama() for testability reasons.
@@ -13,8 +15,7 @@ function(target_sources_data target)
         ${target}
         PRIVATE ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/data.c ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/json.c
                 ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/json_common.c ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/senml_json.c
-                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/tlv.c
-                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/cbor.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/tlv.c ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/cbor.c
     )
 endfunction()
 
@@ -29,14 +30,6 @@ function(target_sources_coap target)
     )
     # We should not (have to) do this!
     target_include_directories(${target} PRIVATE ${WAKAAMA_TOP_LEVEL_DIRECTORY}/coap)
-endfunction()
-
-# Add tinycbor source files to an existing target.
-#
-# Separated from target_sources_wakaama() for testability reasons.
-function(target_sources_tinycbor target)
-    include(${WAKAAMA_LIBS_DIRECTORY}/tinycbor.cmake)
-    target_sources_tinycbor(${target})   
 endfunction()
 
 # Add Wakaama source files to an existing target.

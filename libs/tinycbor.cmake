@@ -14,9 +14,9 @@ set(TINYCBOR_SOURCES
     ${TINYCBOR_SOURCES_DIR}/cborvalidation.c
 )
 
-# Add tinydtls sources to an existing target.
+# Add tinycbor sources to an existing target.
 function(target_sources_tinycbor target)
-    target_sources(${target} PRIVATE ${TINYCBOR_SOURCES} ${TINYCBOR_SOURCES_GENERATED})
+    target_sources(${target} PRIVATE ${TINYCBOR_SOURCES})
     set_source_files_properties(${TINYCBOR_SOURCES} PROPERTIES COMPILE_FLAGS -Wno-float-equal)
     target_include_directories(${target} PRIVATE ${TINYCBOR_SOURCES_DIR})
 endfunction()
