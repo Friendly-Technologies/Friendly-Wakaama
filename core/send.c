@@ -15,11 +15,6 @@ static uint8_t create_payload(lwm2m_context_t * contextP, lwm2m_server_t * serve
     int res;
     lwm2m_media_type_t formatP = LWM2M_CONTENT_SENML_JSON;
 
-    if (ac_is_enabled(contextP, serverP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_READ)) {
-        LOG_ARG("Server %d is not authorized for send", serverP->shortID);
-        return COAP_401_UNAUTHORIZED;
-    }
-
     result = object_readData(contextP, serverP, uriP, &size, &dataP);
     if (result == COAP_205_CONTENT)
     {
@@ -32,6 +27,8 @@ static uint8_t create_payload(lwm2m_context_t * contextP, lwm2m_server_t * serve
         {
             *lengthP = (size_t)res;
         }
+    } else if (result == COAP_401_UNAUTHORIZED) {
+        LOG_ARG("Server %d is not authorized for send", serverP->shortID);
     } else {
         LOG_ARG("Failed to read data for server %d, result: %d", serverP->shortID, result);
     }
