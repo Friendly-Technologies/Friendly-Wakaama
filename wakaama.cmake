@@ -134,11 +134,11 @@ add_compile_options(
     -Wno-unused-parameter
     # Reduce noise: Too many false positives
     -Wno-uninitialized
+    # Disabled because of existing, non-trivially fixable code
+    -Wno-cast-align
 
      # Turn (most) warnings into errors
     -Werror
-    # Disabled because of existing, non-trivially fixable code
-    -Wno-error=cast-align
 )
 
 # The maximum buffer size that is provided for resource responses and must be respected due to the limited IP buffer.

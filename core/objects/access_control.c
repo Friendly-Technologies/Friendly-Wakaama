@@ -5,6 +5,8 @@
 #include "internals.h"
 #include <stdio.h>
 
+#if defined(LWM2M_CLIENT_MODE)
+
 // TODO: When an object has multiple instances and the server performs the LWM2M_OBJ_OP_OBSERVE operation
 // on the entire object, but the server does not have access to all instances of the object, an unexpected
 // behavior occurs. When changing the value of one of the instances of the object, even if this instance is
@@ -480,3 +482,5 @@ int ac_get_instances_with_support_operation(lwm2m_context_t * contextP, lwm2m_se
 
     return result;
 }
+
+#endif  // LWM2M_CLIENT_MODE
