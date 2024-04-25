@@ -276,6 +276,9 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
                         break;
                     }
                 }
+                if (newData == NULL){
+                    LOG("Some error occured !!! ");
+                }
             }///!slashCount3
             else if (slashCount == 4){
                 for (size_t i = 0; i < sizeDataP; i++){
@@ -289,17 +292,30 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
                         if (dataP[i].id == MAX_URI_VAL){
                             newData = &dataP[i];
                             newData->id = uri.resourceId;
+                            newData->type = LWM2M_TYPE_MULTIPLE_RESOURCE;
                             break;
                         }
                     }
+                    if (newData == NULL){
+                        LOG("Some error occured !!! ");
+                    }
                 }
                 /// copying resource
+                LOG_ARG("children count %d", newData->value.asChildren.count);
+                LOG("-------- CHECKPOINT --------------------------- data_new ---");
+                lwm2m_data_t* tempChild = lwm2m_data_new(newData->value.asChildren.count + 1);
+                
+                LOG("-------- CHECKPOINT 1 --------------------------- data_new ---");
+                if (newData->value.asChildren.count > 0){
+                    memcpy(tempChild, newData->value.asChildren.array, newData->value.asChildren.count);
+                    LOG("-------- CHECKPOINT 2 --------------------------- data_new ---");
+                    lwm2m_free(newData->value.asChildren.array);/// TODO remove older data
+                    LOG("-------- CHECKPOINT 3 --------------------------- data_new ---");
+                }
                 newData->value.asChildren.count++;
-                lwm2m_data_t* tempChild = lwm2m_data_new(newData->value.asChildren.count);
-                memcpy(tempChild, newData->value.asChildren.array, newData->value.asChildren.count);
-                lwm2m_free(newData->value.asChildren.array);/// TODO remove older data
                 newData->value.asChildren.array = tempChild;
                 newData->value.asChildren.array[newData->value.asChildren.count - 1].id = uri.resourceInstanceId;
+                newData = &newData->value.asChildren.array[newData->value.asChildren.count - 1];
             }///!slashCount 4
 
             uint64_t valKey;
@@ -375,13 +391,20 @@ size_t prv_count_resources_in_array(CborValue* array, size_t length)
                 return -1;
             }  
             CborType typeMap = cbor_value_get_type(&map);// Get the value
+            LOG_ARG("typeMap = %d", typeMap);
             if (typeMap == CborTextStringType) 
             {
                 size_t len;
                 char *text;
                 
-                cbor_value_dup_text_string(&map, &text, &len, NULL);
+                err = cbor_value_dup_text_string(&map, &text, &len, NULL);
+                if (err != CborNoError) {
+                    printf("Error cbor_value_dup_text_string to value\n");
+                    return -1;
+                } 
+                lwm2m_printf("%.*s", len, text );
                 int backslashCount = countBackSlashes(text);
+                LOG_ARG("backslashes %d", backslashCount);
                 if (backslashCount == 3) {
                     resourceCount++;
                 }
@@ -415,13 +438,13 @@ size_t prv_count_resources_in_array(CborValue* array, size_t length)
             LOG_ARG("cbor_value_leave_container array FAILED with error %d", err);
             return -1;
         }
-        if (array->remaining > 1){
-            err = cbor_value_advance(array);/// Move to the next map
-            if (err != CborNoError) {
-                LOG_ARG("cbor_value_advance array FAILED with error %d", err);
-                return -1;
-            }
-        }
+        // if (array->remaining > 1){
+        //     err = cbor_value_advance(array);/// Move to the next map
+        //     if (err != CborNoError) {
+        //         LOG_ARG("cbor_value_advance array FAILED with error %d", err);
+        //         return -1;
+        //     }
+        // }
     }///!while not end of array
     *array = arrayStart; /// Reset the array pointer to the starting position
 
@@ -517,8 +540,9 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
             }
             else if (LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP)){
                 LOG("!uriP->resourceInstanceId --------------------------------------- ");
-                if (resCount != 1 || inData->type != LWM2M_TYPE_MULTIPLE_RESOURCE){
-                    LOG("Some Error occured");
+                LOG_ARG("inData->type %d", inData->type);
+                if ((resCount != 1) || (inData->type != LWM2M_TYPE_MULTIPLE_RESOURCE)){
+                    LOG("Some Error occured during !uriP->resourceInstanceId");
                     return -1;
                 } 
                 lwm2m_data_t *tmpDataP = inData;
