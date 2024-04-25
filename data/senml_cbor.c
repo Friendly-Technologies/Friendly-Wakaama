@@ -222,7 +222,7 @@ CborError prv_parse_value(CborValue* valueP, uint64_t mapValP, lwm2m_data_t *dat
 /// @param dataP 
 /// @param sizeDataP 
 /// @return 
-CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t sizeDataP)
+CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t sizeDataP, uint16_t instId)
 {
     CborValue map;
     CborError err;
@@ -275,6 +275,7 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
             
             lwm2m_stringToUri(uriStr, uriStrlen, &uri );
             LOG_URI(&uri);
+            instId = uri.instanceId; /// here wa take the instance id from the map-uri and will pass it further if needed
             newData = NULL;
 
             if (slashCount == 3){
@@ -466,8 +467,8 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
     CborError err;
     lwm2m_data_t *inData = NULL; /// inner temporary buffer-like structure
     *dataP = NULL;               /// pointer to the final lwm2m struct
-    size_t arrLen = 0;
-    size_t resCount = 0;
+    size_t arrLen = 0, resCount = 0;
+    uint16_t instId;
 
     LOG_ARG("bufferLen: %d", bufferLen);
     LOG("SENML CBOR parse --- >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ");
@@ -476,6 +477,7 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
         lwm2m_printf("%02x", buffer[i]);
     }
     LOG("SENML CBOR parse --- >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ");
+
     
     if (uriP == NULL){
         return -1;
@@ -527,7 +529,7 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
 
             for (size_t i = 0; i < arrLen; i++) 
             {
-                err = prv_parse_resources(&array, inData, resCount);
+                err = prv_parse_resources(&array, inData, resCount, instId);
                 if (err != CborNoError)
                 {
                     LOG_ARG("prv_parse_resources FAILED with error %d", err);
@@ -538,7 +540,7 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
             if (!LWM2M_URI_IS_SET_INSTANCE(uriP)){
                 LOG("!uriP->instanceId --------------------------------------- ");
                 lwm2m_data_t* wrapStr = lwm2m_data_new(1);
-                // wrapStr->id = ; /// TODO take instanceID from the inner uris from item maps
+                wrapStr->id = instId;
                 wrapStr->type = LWM2M_TYPE_OBJECT_INSTANCE;
                 wrapStr->value.asChildren.array = inData;
                 wrapStr->value.asChildren.count = resCount;
