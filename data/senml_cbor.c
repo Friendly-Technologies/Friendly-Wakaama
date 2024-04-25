@@ -41,8 +41,9 @@
 #define DEFAULT_BUFF_SIZE           (1024UL)
 #define MAX_URI_VAL                 (65535UL)
 
-
-/// Function to count backslashes in the string
+/// @brief Function to count backslashes in the string
+/// @param str 
+/// @return 
 int countBackSlashes(const char* str) {
     int count = 0;
     while (*str) {
@@ -54,6 +55,11 @@ int countBackSlashes(const char* str) {
     return count;
 }
 
+/// @brief Function that parses the value according to the map-values from the table(see above)
+/// @param valueP 
+/// @param mapValP 
+/// @param dataP 
+/// @return 
 CborError prv_parse_value(CborValue* valueP, uint64_t mapValP, lwm2m_data_t *dataP)
 {
     CborError err;
@@ -65,7 +71,7 @@ CborError prv_parse_value(CborValue* valueP, uint64_t mapValP, lwm2m_data_t *dat
             err = cbor_value_get_int64_checked(valueP, &dataP->value.asInteger);
             if (err != CborNoError)
             {
-                LOG_ARG("Error: SENML_CBOR_MAP_TIME: cbor_value_get_int64_checked with err=%d\n", err);
+                LOG_ARG("cbor_value_get_int64_checked FAILED with err=%d\n", err);
                 return -1;
             }
             dataP->type = LWM2M_TYPE_TIME; /// now it's the TIME is the only type with a TAG
@@ -138,7 +144,7 @@ CborError prv_parse_value(CborValue* valueP, uint64_t mapValP, lwm2m_data_t *dat
               
                 err = cbor_value_calculate_string_length(valueP, &temPlen);
                 if (err != CborNoError) {
-                    LOG_ARG("Error%d: cbor_value_calculate_string_length\n", err);
+                    LOG_ARG("cbor_value_calculate_string_length FAILED with error %d", err);
                     lwm2m_free(dataP);
                     return -1;
                 }
@@ -152,11 +158,10 @@ CborError prv_parse_value(CborValue* valueP, uint64_t mapValP, lwm2m_data_t *dat
 
                 err = cbor_value_dup_byte_string(valueP, &temp, &temPlen, valueP);
                 if (err!= CborNoError){
-                    LOG_ARG("Error%d: cbor_value_dup_byte_string\n", err);
+                    LOG_ARG("cbor_value_dup_byte_string FAILED with error %d", err);
                     lwm2m_free(dataP);
                     return -1;     
                 }
-
                 dataP->value.asBuffer.buffer = (uint8_t *)temp;
                 dataP->value.asBuffer.length = temPlen;
                 dataP->type = LWM2M_TYPE_OPAQUE;
@@ -169,21 +174,21 @@ CborError prv_parse_value(CborValue* valueP, uint64_t mapValP, lwm2m_data_t *dat
 
                 err = cbor_value_calculate_string_length(valueP, &temPlen);
                 if (err != CborNoError) {
-                    LOG_ARG("Error%d: cbor_value_calculate_string_length\n", err);
+                    LOG_ARG("cbor_value_calculate_string_length FAILED with error %d", err);
                     lwm2m_free(dataP);
                     return -1;
                 }
 
                 temp = (char *)lwm2m_malloc(temPlen);
                 if (temp == NULL) {
-                    LOG("Error: Memory allocation failed\n");
+                    LOG("Error: Memory allocation failed !!!");
                     lwm2m_free(dataP);
                     return -1;
                 }
 
                 err = cbor_value_dup_text_string(valueP, &temp, &temPlen, valueP);
                 if (err!= CborNoError){
-                    LOG_ARG("Error%d: cbor_value_dup_text_string\n", err);
+                    LOG_ARG("cbor_value_dup_text_string FAILED with error %d", err);
                     lwm2m_free(dataP);
                     return -1;
                 }
@@ -204,7 +209,7 @@ CborError prv_parse_value(CborValue* valueP, uint64_t mapValP, lwm2m_data_t *dat
             dataP->type = LWM2M_TYPE_BOOLEAN;
             break;
         default:
-            LOG_ARG("Senml Cbor Wrong Error MapType 0x%x\n", mapValP);
+            LOG_ARG("Error: Senml Cbor Wrong MapType 0x%x\n", mapValP);
             lwm2m_free(dataP);
             return -1; 
             break;
@@ -212,6 +217,11 @@ CborError prv_parse_value(CborValue* valueP, uint64_t mapValP, lwm2m_data_t *dat
     return err;
 }
 
+/// @brief Function that parses the resources
+/// @param array 
+/// @param dataP 
+/// @param sizeDataP 
+/// @return 
 CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t sizeDataP)
 {
     CborValue map;
@@ -219,7 +229,6 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
     lwm2m_uri_t uri;
     lwm2m_data_t* newData;
 
-    LOG_ARG("array.remaining=%d", array->remaining);
     err = cbor_value_enter_container(array, &map); // Enter each map
     if (err != CborNoError)
     {
@@ -231,7 +240,7 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
     {
         err = cbor_value_advance(&map);    // Skip the key
         if (err != CborNoError) {
-            printf("Error advancing to value\n");
+            LOG_ARG("cbor_value_advance FAILED with err=%d", err);
             return -1;
         }  
         CborType typeMap = cbor_value_get_type(&map); // Get the value
@@ -242,14 +251,14 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
             
             err = cbor_value_get_string_length(&map, &uriStrlen); /// getting uri-length
             if (err != CborNoError) {
-                LOG_ARG("Error%d: cbor_value_calculate_string_length\n", err);
+                LOG_ARG("Error%d: cbor_value_calculate_string_length", err);
                 return -1;
             }
             LOG_ARG("uri string length = %d", uriStrlen);
 
             uriStr = (char *)lwm2m_malloc(uriStrlen);
             if (uriStr == NULL) {
-                LOG("Error: Memory allocation failed\n");
+                LOG("Error: Memory allocation failed");
                 return -1;
             }
             
@@ -262,7 +271,7 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
             lwm2m_printf("%.*s", uriStrlen, uriStr);
             
             int slashCount = countBackSlashes(uriStr);
-            LOG_ARG("slashCount = %d\n", slashCount);
+            LOG_ARG("slashCount = %d", slashCount);
             
             lwm2m_stringToUri(uriStr, uriStrlen, &uri );
             LOG_URI(&uri);
@@ -277,7 +286,7 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
                     }
                 }
                 if (newData == NULL){
-                    LOG("Some error occured !!! ");
+                    LOG("Some error occured (slashCount==3)! newData is NULL !!! ");
                 }
             }///!slashCount3
             else if (slashCount == 4){
@@ -297,20 +306,15 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
                         }
                     }
                     if (newData == NULL){
-                        LOG("Some error occured !!! ");
+                        LOG("Some error occured(slashCount==4)! newData is NULL !!! ");
                     }
                 }
                 /// copying resource
                 LOG_ARG("children count %d", newData->value.asChildren.count);
-                LOG("-------- CHECKPOINT --------------------------- data_new ---");
                 lwm2m_data_t* tempChild = lwm2m_data_new(newData->value.asChildren.count + 1);
-                
-                LOG("-------- CHECKPOINT 1 --------------------------- data_new ---");
                 if (newData->value.asChildren.count > 0){
                     memcpy(tempChild, newData->value.asChildren.array, newData->value.asChildren.count);
-                    LOG("-------- CHECKPOINT 2 --------------------------- data_new ---");
-                    lwm2m_free(newData->value.asChildren.array);/// TODO remove older data
-                    LOG("-------- CHECKPOINT 3 --------------------------- data_new ---");
+                    lwm2m_free(newData->value.asChildren.array);
                 }
                 newData->value.asChildren.count++;
                 newData->value.asChildren.array = tempChild;
@@ -332,16 +336,15 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
             err = cbor_value_advance_fixed(&map);
             if (err != CborNoError)
             {
-                LOG("Error: cbor_value_advance_fixed failed %d\n, err");
+                LOG_ARG("cbor_value_advance_fixed FAILED with error %d", err);
                 return -1;
             }
             err = prv_parse_value(&map, valKey, newData);
             if (err != CborNoError)
             {
-                LOG("Error: prv_parse_value %d\n, err");
+                LOG_ARG("prv_parse_value FAILED with error %d", err);
                 return -1;
             }
-            LOG_ARG("newData.integer = %d", newData->value.asInteger);
         }///!typeMap
     }///!while not end map
     err = cbor_value_leave_container(array, &map); /// leave the map
@@ -350,12 +353,15 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
         LOG_ARG("cbor_value_leave_container array FAILED with error %d", err);
         return -1;
     }
-    /// Move to the next map
-    LOG_ARG("array.remaining=%d", array->remaining);
     
     return CborNoError;
 }
 
+/// @brief Function that counts the resources in the SENML-CBOR array (if their uris are equal to 3 
+/// or if there are several resources with uri==4 and same resourceID)
+/// @param array 
+/// @param length 
+/// @return 
 size_t prv_count_resources_in_array(CborValue* array, size_t length) 
 {
     CborValue map;
@@ -387,7 +393,7 @@ size_t prv_count_resources_in_array(CborValue* array, size_t length)
         {
             err = cbor_value_advance(&map);/// Skip the key
             if (err != CborNoError) {
-                printf("Error advancing to value\n");
+                LOG_ARG("cbor_value_advance FAILED with error %d", err);
                 return -1;
             }  
             CborType typeMap = cbor_value_get_type(&map);// Get the value
@@ -399,12 +405,12 @@ size_t prv_count_resources_in_array(CborValue* array, size_t length)
                 
                 err = cbor_value_dup_text_string(&map, &text, &len, NULL);
                 if (err != CborNoError) {
-                    printf("Error cbor_value_dup_text_string to value\n");
+                    LOG_ARG("cbor_value_dup_text_string FAILED with error %d", err);
                     return -1;
                 } 
                 lwm2m_printf("%.*s", len, text );
                 int backslashCount = countBackSlashes(text);
-                LOG_ARG("backslashes %d", backslashCount);
+                LOG_ARG("backSlashes = %d", backslashCount);
                 if (backslashCount == 3) {
                     resourceCount++;
                 }
@@ -415,7 +421,7 @@ size_t prv_count_resources_in_array(CborValue* array, size_t length)
                     for (size_t i = 0; i < numIds; i++) {
                         if (idsArray[i] == uriFromMap.resourceId)
                         {
-                            duplicateFound = true;
+                            duplicateFound = true;/// if there are several resources with the same resourceID - it means they are truly resources
                             resourceCount++;
                             break;
                         }
@@ -438,19 +444,18 @@ size_t prv_count_resources_in_array(CborValue* array, size_t length)
             LOG_ARG("cbor_value_leave_container array FAILED with error %d", err);
             return -1;
         }
-        // if (array->remaining > 1){
-        //     err = cbor_value_advance(array);/// Move to the next map
-        //     if (err != CborNoError) {
-        //         LOG_ARG("cbor_value_advance array FAILED with error %d", err);
-        //         return -1;
-        //     }
-        // }
     }///!while not end of array
     *array = arrayStart; /// Reset the array pointer to the starting position
 
     return resourceCount;
 }
 
+/// @brief Main function to parse the SENML-CBOR arrays into the lwm2m_data_t structures
+/// @param uriP 
+/// @param buffer 
+/// @param bufferLen 
+/// @param dataP 
+/// @return 
 int senml_cbor_parse(const lwm2m_uri_t * uriP,
                      const uint8_t * buffer, 
                      size_t bufferLen, 
@@ -548,7 +553,6 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
                 lwm2m_data_t *tmpDataP = inData;
                 resCount = tmpDataP->value.asChildren.count;
                 *dataP = tmpDataP->value.asChildren.array;
-                // lwm2m_free(tmpDataP);
                 LOG_ARG("senml_cbor_parse:1 dataP.type = %d, ", inData->type);
                 LOG_ARG("senml_cbor_parse:1 dataP.ID = %d, ", inData->id);
                 LOG_ARG("senml_cbor_parse:1 dataP.asBoolean = %d, ", inData->value.asBoolean);
@@ -572,7 +576,7 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
         LOG_ARG("type is not CborArrayType, (%d)", type);
         return -1;
     }
-    LOG(" LAST CHECKPOINT >>>>>>>>>>>>>>>> -------------------------------------- ");
+    LOG(" LAST CHECKPOINT >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> -------------------------------------- ");
     LOG_ARG("senml_cbor_parse:2 dataP.type = %d, ", inData->type);
     LOG_ARG("senml_cbor_parse:2 dataP.ID = %d, ", inData->id);
     LOG_ARG("senml_cbor_parse:2 dataP.asBoolean = %d, ", inData->value.asBoolean);
