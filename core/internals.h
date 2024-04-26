@@ -499,11 +499,13 @@ lwm2m_server_t * utils_findBootstrapServer(lwm2m_context_t * contextP, void * fr
 lwm2m_client_t * utils_findClient(lwm2m_context_t * contextP, void * fromSessionH);
 #endif
 
+#ifdef LWM2M_CLIENT_MODE
 // defined in objects/access_control.c
 bool ac_is_enabled(lwm2m_context_t * contextP, lwm2m_server_t * serverP);
 bool ac_is_operation_authorized(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t *uriP, lwm2m_obj_operation_t operation);
 int ac_create_instance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP);
 int ac_delete_instance(lwm2m_context_t * contextP, lwm2m_uri_t * uriP);
 int ac_get_instances_with_support_operation(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_object_t * targetObjP, lwm2m_obj_operation_t operation, lwm2m_list_t **objInstList);
+#endif // LWM2M_CLIENT_MODE
 
 #endif
