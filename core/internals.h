@@ -138,8 +138,6 @@
 #endif
 
 #define LWM2M_DEFAULT_LIFETIME  86400
-// 0.85 is coefficient for lifetime safe interval
-#define LWM2M_COMPUTE_LIFETIME(lifetime_sec) ((time_t)((lifetime_sec) * 0.85))
 
 #ifdef LWM2M_REG_PREFERRED_CONTENT_TYPE
 #define REG_LWM2M_RESOURCE_TYPE     ">;rt=\"oma.lwm2m\";ct=" VALUE_TO_STRING(LWM2M_REG_PREFERRED_CONTENT_TYPE) ","
@@ -301,19 +299,6 @@ typedef enum
     LWM2M_REQUEST_TYPE_BOOTSTRAP,
     LWM2M_REQUEST_TYPE_DELETE_ALL
 } lwm2m_request_type_t;
-
-typedef enum
-{
-    LWM2M_OBJ_OP_UNKNOWN,
-    LWM2M_OBJ_OP_READ,
-    LWM2M_OBJ_OP_WRITE,
-    LWM2M_OBJ_OP_WRITE_ATTRIBUTES,
-    LWM2M_OBJ_OP_EXECUTE,
-    LWM2M_OBJ_OP_CREATE,
-    LWM2M_OBJ_OP_DELETE,
-    LWM2M_OBJ_OP_OBSERVE,
-    LWM2M_OBJ_OP_DISCOVER
-} lwm2m_obj_operation_t;
 
 // defined in uri.c
 lwm2m_request_type_t uri_decode(char * altPath, multi_option_t *uriPath, uint8_t code, lwm2m_uri_t *uriP);
@@ -498,12 +483,5 @@ lwm2m_server_t * utils_findBootstrapServer(lwm2m_context_t * contextP, void * fr
 #if defined(LWM2M_SERVER_MODE) || defined(LWM2M_BOOTSTRAP_SERVER_MODE)
 lwm2m_client_t * utils_findClient(lwm2m_context_t * contextP, void * fromSessionH);
 #endif
-
-// defined in objects/access_control.c
-bool ac_is_enabled(lwm2m_context_t * contextP, lwm2m_server_t * serverP);
-bool ac_is_operation_authorized(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t *uriP, lwm2m_obj_operation_t operation);
-int ac_create_instance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP);
-int ac_delete_instance(lwm2m_context_t * contextP, lwm2m_uri_t * uriP);
-int ac_get_instances_with_support_operation(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_object_t * targetObjP, lwm2m_obj_operation_t operation, lwm2m_list_t **objInstList);
 
 #endif

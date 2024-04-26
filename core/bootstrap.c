@@ -488,7 +488,7 @@ static uint8_t prv_handleBootstrapRead(lwm2m_context_t * contextP,
     if (LWM2M_URI_IS_SET_OBJECT(uriP))
     {
         if (uriP->objectId == LWM2M_SERVER_OBJECT_ID
-         || uriP->objectId == LWM2M_AC_OBJECT_ID)
+         || uriP->objectId == LWM2M_ACL_OBJECT_ID)
         {
             result = object_read(contextP,
                                  serverP,

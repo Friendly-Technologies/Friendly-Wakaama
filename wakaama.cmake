@@ -1,9 +1,7 @@
 set(WAKAAMA_TOP_LEVEL_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}")
-set(WAKAAMA_CORE_DIRECTORY "${WAKAAMA_TOP_LEVEL_DIRECTORY}/core")
-set(WAKAAMA_CORE_OBJECTS_DIRECTORY "${WAKAAMA_CORE_DIRECTORY}/objects")
 set(WAKAAMA_EXAMPLE_DIRECTORY "${WAKAAMA_TOP_LEVEL_DIRECTORY}/examples")
 set(WAKAAMA_EXAMPLE_SHARED_DIRECTORY "${WAKAAMA_EXAMPLE_DIRECTORY}/shared")
-set(WAKAAMA_LIBS_DIRECTORY "${WAKAAMA_TOP_LEVEL_DIRECTORY}/libs")
+set(WAKAAMA_TINYCBOR_DIRECTORY "${WAKAAMA_TOP_LEVEL_DIRECTORY}/libs")
 
 # Add data format source files to an existing target.
 #
@@ -35,7 +33,7 @@ endfunction()
 #
 # Separated from target_sources_wakaama() for testability reasons.
 function(target_sources_tinycbor target)
-    include(${WAKAAMA_LIBS_DIRECTORY}/tinycbor.cmake)
+    include(${WAKAAMA_TINYCBOR_DIRECTORY}/tinycbor.cmake)
     target_sources_tinycbor(${target})   
 endfunction()
 
@@ -48,26 +46,25 @@ endfunction()
 function(target_sources_wakaama target)
     target_sources(
         ${target}
-        PRIVATE ${WAKAAMA_CORE_DIRECTORY}/bootstrap.c
-                ${WAKAAMA_CORE_DIRECTORY}/discover.c
-                ${WAKAAMA_CORE_DIRECTORY}/internals.h
-                ${WAKAAMA_CORE_DIRECTORY}/liblwm2m.c
-                ${WAKAAMA_CORE_DIRECTORY}/list.c
-                ${WAKAAMA_CORE_DIRECTORY}/management.c
-                ${WAKAAMA_CORE_DIRECTORY}/objects.c
-                ${WAKAAMA_CORE_DIRECTORY}/observe.c
-                ${WAKAAMA_CORE_DIRECTORY}/packet.c
-                ${WAKAAMA_CORE_DIRECTORY}/registration.c
-                ${WAKAAMA_CORE_DIRECTORY}/uri.c
-                ${WAKAAMA_CORE_DIRECTORY}/utils.c
-                ${WAKAAMA_CORE_DIRECTORY}/send.c
-                ${WAKAAMA_CORE_OBJECTS_DIRECTORY}/access_control.c
+        PRIVATE ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/bootstrap.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/discover.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/internals.h
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/liblwm2m.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/list.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/management.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/objects.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/observe.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/packet.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/registration.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/uri.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/utils.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/send.c
     )
 
-    target_include_directories(${target} PUBLIC ${WAKAAMA_TOP_LEVEL_DIRECTORY}/include)
+    target_include_directories(${target} PRIVATE ${WAKAAMA_TOP_LEVEL_DIRECTORY}/include)
 
     # We should not (have to) do this!
-    target_include_directories(${target} PRIVATE ${WAKAAMA_CORE_DIRECTORY})
+    target_include_directories(${target} PRIVATE ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core)
 
     # Extract pre-existing target specific definitions WARNING: Directory properties are not taken into account!
     get_target_property(CURRENT_TARGET_COMPILE_DEFINITIONS ${target} COMPILE_DEFINITIONS)

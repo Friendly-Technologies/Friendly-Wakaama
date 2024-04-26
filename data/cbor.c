@@ -39,13 +39,12 @@ int cbor_parse(lwm2m_uri_t * uriP,
         LOG("lwm2m_data_new FAILED");
         return -1; 
     }
-    if (LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP)) data->id = uriP->resourceInstanceId;
-    else if (LWM2M_URI_IS_SET_RESOURCE(uriP)) data->id = uriP->resourceId;
-    else {
+    if (!LWM2M_URI_IS_SET_RESOURCE(uriP)){
         lwm2m_free(data);
         LOG("LWM2M_URI_IS_SET_RESOURCE FAILED");
         return -1; 
     }
+    data->id = uriP->resourceId;
 
     CborType type = cbor_value_get_type(&value);
     switch (type)

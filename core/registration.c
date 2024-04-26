@@ -2101,9 +2101,20 @@ void registration_step(lwm2m_context_t * contextP,
 #endif
         case STATE_REGISTERED:
         {
+            time_t nextUpdate;
             time_t interval;
 
-            interval = targetP->registration + LWM2M_COMPUTE_LIFETIME(targetP->lifetime) - currentTime;
+            nextUpdate = targetP->lifetime;
+            if (COAP_MAX_TRANSMIT_WAIT < nextUpdate)
+            {
+                nextUpdate -= COAP_MAX_TRANSMIT_WAIT;
+            }
+            else
+            {
+                nextUpdate = nextUpdate >> 1;
+            }
+
+            interval = targetP->registration + nextUpdate - currentTime;
             if (0 >= interval)
             {
                 LOG_ARG("%d Updating registration", targetP->shortID);
