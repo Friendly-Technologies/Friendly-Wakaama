@@ -16,6 +16,7 @@ function(target_sources_data target)
         PRIVATE ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/data.c ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/json.c
                 ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/json_common.c ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/senml_json.c
                 ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/tlv.c ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/cbor.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/senml_cbor.c
     )
 endfunction()
 
