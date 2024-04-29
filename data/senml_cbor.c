@@ -477,13 +477,6 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
     }
     LOG_URI(uriP);
     LOG_ARG("bufferLen: %d", bufferLen);
-
-    LOG("SENML CBOR parse --- >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ");
-    for (uint32_t i = 0; i < bufferLen; i++)
-    {
-        lwm2m_printf("%02x", buffer[i]);
-    }
-    LOG("SENML CBOR parse --- >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ");
     
     err = cbor_parser_init(buffer, bufferLen, 0, &parser, &array);    
     if (err != CborNoError)
@@ -565,17 +558,6 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
         LOG_ARG("Error: type is not CborArrayType, (%d)", type);
         return -1;
     }
-    LOG(" LAST CHECKPOINT >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> -------------------------------------- ");
-    LOG_ARG("senml_cbor_parse:2 dataP.type = %d, ", inData->type);
-    LOG_ARG("senml_cbor_parse:2 dataP.ID = %d, ", inData->id);
-    LOG_ARG("senml_cbor_parse:2 dataP.asBoolean = %d, ", inData->value.asBoolean);
-    LOG_ARG("senml_cbor_parse:2 dataP.asInteger = %d, ", inData->value.asInteger);
-    LOG_ARG("senml_cbor_parse:2 dataP.asUnsigned = %lu, ", inData->value.asUnsigned);
-    LOG_ARG("senml_cbor_parse:2 dataP.asFloat = %f, ", inData->value.asFloat);
-    LOG_ARG("senml_cbor_parse:2 dataP.asBufferLength = %d, ", inData->value.asBuffer.length);
-    LOG_ARG("senml_cbor_parse:2 dataP.asChildrenCount = %d, ", inData->value.asChildren.count);
-    LOG_ARG("senml_cbor_parse:2 dataP.asObjLink.objectId = %d, ", inData->value.asObjLink.objectId);
-    LOG_ARG("senml_cbor_parse:2 dataP.asObjLink.objectInstanceId = %d, ", inData->value.asObjLink.objectInstanceId);
     
     *dataP = inData; /// copying parsed data into the final lwm2m_data struct
     return resCount;
