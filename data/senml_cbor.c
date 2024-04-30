@@ -72,7 +72,7 @@ CborError prv_parse_value(CborValue* valueP, uint64_t mapValP, lwm2m_data_t *dat
                 LOG_ARG("cbor_value_get_int64_checked FAILED with err=%d\n", err);
                 return -1;
             }
-            dataP->type = LWM2M_TYPE_TIME; /// now it's the TIME is the only type with a TAG
+            dataP->type = LWM2M_TYPE_TIME; /// SENML-CBOR does not need the tag-time, it has time-map-key instead 
             break;
         case SENML_CBOR_MAP_VALUE:
             if (cbor_value_is_unsigned_integer(valueP)){
@@ -687,15 +687,11 @@ CborError senml_cbor_encodeValueWithMap(CborEncoder* encoder, const lwm2m_data_t
             break;
         case LWM2M_TYPE_TIME:
         {
-            err = cbor_encode_int(encoder, SENML_CBOR_MAP_TIME);
+            err = cbor_encode_int(encoder, SENML_CBOR_MAP_TIME); /// SENML-CBOR has his own map-key for the time-type values(it differs from CBOR-time-keying)
             if (err != CborNoError) {
                 LOG_ARG("cbor_encode_int FAILED with error %d", err);
                 return -1; 
             }
-            // err = cbor_encode_tag(encoder, CborUnixTime_tTag);/// now unixTime is the only tag-ed type
-            // if (err != CborNoError) {
-            //     return err; 
-            // }
             err = cbor_encode_int(encoder, tlvP->value.asInteger);
             if (err != CborNoError) {
                 LOG_ARG("cbor_encode_int FAILED with error %d", err);
