@@ -14,6 +14,11 @@
 // those instances to which it has access will be transferred to the server. What is the problem with generating
 // notifications for the server even if the specific instance is not available to the server.
 
+// When the internal cash should be updated
+static bool _updateAcPolicies = true;
+static lwm2m_data_t *_acPolicies = NULL;
+static int _acPoliciesCount = 0;
+
 /**
  * @brief Get the Access Control Object Instance target object and instance identifiers 
  */
@@ -270,6 +275,41 @@ static int prv_get_supported_target_instances(lwm2m_data_t *acInstances, int acI
     return *objInstList? COAP_205_CONTENT : COAP_401_UNAUTHORIZED;
 }
 
+bool prv_ac_is_enabled(lwm2m_context_t * contextP) {
+    lwm2m_object_t * acObjP = (lwm2m_object_t *)LWM2M_LIST_FIND(contextP->objectList, LWM2M_AC_OBJECT_ID);
+    // In bootstrap mode, the bootstrap server can read all object instances
+    return contextP->state != STATE_BOOTSTRAPPING && acObjP != NULL && acObjP->instanceList != NULL;
+}
+
+static bool prv_update_policy_cache(lwm2m_context_t * contextP) {
+    lwm2m_data_t *newPolicies = NULL;
+    lwm2m_uri_t aclUri = {LWM2M_AC_OBJECT_ID, LWM2M_MAX_ID, LWM2M_MAX_ID, LWM2M_MAX_ID};
+    int policiesCount = 0;
+    uint8_t result;
+
+    if (contextP == NULL) return false;
+    // If Access Control Object is not enabled, then return true
+    if (!prv_ac_is_enabled(contextP)) return true;
+    
+    // Get Access Control Object instances
+    result = object_readData(contextP, NULL, &aclUri, &policiesCount, &newPolicies);
+    if (result != COAP_205_CONTENT) {
+        LOG("Failed to update Access Control policies try again later");
+        if (newPolicies != NULL) lwm2m_data_free(policiesCount, newPolicies);
+        return false;
+    }
+
+    // Free the old policies
+    if (_acPolicies != NULL) lwm2m_data_free(_acPoliciesCount, _acPolicies);
+    // Update the cache
+    _acPolicies = newPolicies;
+    _acPoliciesCount = policiesCount;
+
+    LOG("Access Control policies updated");
+
+    return true;
+}
+
 /**
  * @brief Check if Access Control Object is enabled
  */
@@ -298,9 +338,6 @@ bool ac_is_enabled(lwm2m_context_t * contextP, lwm2m_server_t * serverP) {
  *  - LWM2M_OBJ_OP_DISCOVER.
  */
 bool ac_is_operation_authorized(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t *uriP, lwm2m_obj_operation_t operation) {
-    lwm2m_data_t *acInstances = NULL;
-    lwm2m_uri_t aclUri = {LWM2M_AC_OBJECT_ID, LWM2M_MAX_ID, LWM2M_MAX_ID, LWM2M_MAX_ID};
-    int acInstCount = 0;
     bool result = false;
 
     LOG_ARG("Checking if operation %d is authorized for %d/%d/%d/%d, server: %d", operation, uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId, ((serverP)? serverP->shortID : LWM2M_MAX_ID));
@@ -310,18 +347,22 @@ bool ac_is_operation_authorized(lwm2m_context_t * contextP, lwm2m_server_t * ser
     // If Access Control Object is not enabled, then the operation is always allowed
     if (!ac_is_enabled(contextP, serverP)) return true;
 
+    // Update the policies if needed
+    if (_updateAcPolicies) {
+        if (prv_update_policy_cache(contextP)) _updateAcPolicies = false;
+        else LOG("Failed to update Access Control policies");
+    }
+
     // Discover operation is always allowed
     if (operation == LWM2M_OBJ_OP_DISCOVER) return true;
 
-    // Get Access Control Object instances
-    object_readData(contextP, NULL, &aclUri, &acInstCount, &acInstances);
-    if (acInstCount == 0) return false;
+    // Check Access Control Object instances
+    if (_acPolicies == NULL) return false;
     
     // Check if the operation is authorized
-    if (uriP->objectId == LWM2M_AC_OBJECT_ID) result = prv_is_ac_instance_operation_authorized(acInstances, acInstCount, serverP, uriP->instanceId, operation);
-    else if (!LWM2M_URI_IS_SET_INSTANCE(uriP)) result = prv_is_object_operation_authorized(acInstances, acInstCount, serverP, uriP->objectId, operation);
-    else result = prv_is_instance_operation_authorized(acInstances, acInstCount, serverP, uriP, operation);
-    lwm2m_data_free(acInstCount, acInstances);
+    if (uriP->objectId == LWM2M_AC_OBJECT_ID) result = prv_is_ac_instance_operation_authorized(_acPolicies, _acPoliciesCount, serverP, uriP->instanceId, operation);
+    else if (!LWM2M_URI_IS_SET_INSTANCE(uriP)) result = prv_is_object_operation_authorized(_acPolicies, _acPoliciesCount, serverP, uriP->objectId, operation);
+    else result = prv_is_instance_operation_authorized(_acPolicies, _acPoliciesCount, serverP, uriP, operation);
 
     LOG_ARG("Operation %d is %s for %d/%d/%d/%d, server: %d", operation, result ? "authorized" : "not authorized", uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId, (serverP)? serverP->shortID : LWM2M_MAX_ID);
 
@@ -386,6 +427,12 @@ int ac_create_instance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm
     lwm2m_free(resourcesData);
     lwm2m_free(aclData);
 
+    // Update the policies if needed
+    if (_updateAcPolicies) {
+        if (prv_update_policy_cache(contextP)) _updateAcPolicies = false;
+        else LOG("Failed to update Access Control policies");
+    }
+
     LOG_ARG("Result of creating Access Control Object Instance for %d/%d/%d/%d is %d", uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId, result);
 
     return result;
@@ -396,9 +443,8 @@ int ac_create_instance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm
  */
 int ac_delete_instance(lwm2m_context_t * contextP, lwm2m_uri_t * uriP) {
     lwm2m_object_t * acObjectP;
-    lwm2m_data_t *acInstances, *acInstance;
+    lwm2m_data_t *acInstance;
     lwm2m_uri_t aclUri = {LWM2M_AC_OBJECT_ID, LWM2M_MAX_ID, LWM2M_MAX_ID, LWM2M_MAX_ID};
-    int acInstCount = 0;
     uint8_t result = COAP_202_DELETED;
 
     LOG_ARG("Deleting Access Control Object Instance for %d/%d/%d/%d", uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId);
@@ -412,22 +458,28 @@ int ac_delete_instance(lwm2m_context_t * contextP, lwm2m_uri_t * uriP) {
     if (NULL == acObjectP) return COAP_404_NOT_FOUND;
     if (NULL == acObjectP->deleteFunc) return COAP_405_METHOD_NOT_ALLOWED;
 
-    // Get Access Control Object instances
-    result = object_readData(contextP, NULL, &aclUri, &acInstCount, &acInstances);
-    if (acInstCount == 0) return result;
-
-    // Find the Access Control Object Instance
-    acInstance = prv_get_ac_instance_for_target(acInstances, acInstCount, uriP->objectId, uriP->instanceId);
-    if (acInstance == NULL) {
-        lwm2m_data_free(acInstCount, acInstances);
-        return result;
+    // Update the policies if needed
+    if (_updateAcPolicies) {
+        if (prv_update_policy_cache(contextP)) _updateAcPolicies = false;
+        else LOG("Failed to update Access Control policies");
     }
+
+    // Check Access Control Object instances
+    if (_acPolicies == NULL) return COAP_202_DELETED;
+    // Find the Access Control Object Instance
+    acInstance = prv_get_ac_instance_for_target(_acPolicies, _acPoliciesCount, uriP->objectId, uriP->instanceId);
+    if (acInstance == NULL) return COAP_202_DELETED;
 
     // Delete the Access Control Object Instance
     result = acObjectP->deleteFunc(contextP, NULL, acInstance->id, acObjectP);
     aclUri.instanceId = acInstance->id;
     if (result == COAP_202_DELETED) observe_clear(contextP, &aclUri);
-    lwm2m_data_free(acInstCount, acInstances);
+
+    // Update the policies if needed
+    if (_updateAcPolicies) {
+        if (prv_update_policy_cache(contextP)) _updateAcPolicies = false;
+        else LOG("Failed to update Access Control policies");
+    }
 
     LOG_ARG("Result of deleting Access Control Object Instance for %d/%d/%d/%d is %d", uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId, result);
 
@@ -439,9 +491,6 @@ int ac_delete_instance(lwm2m_context_t * contextP, lwm2m_uri_t * uriP) {
  * Returned list should be freed by the caller.
  */
 int ac_get_instances_with_support_operation(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_object_t * targetObjP, lwm2m_obj_operation_t operation, lwm2m_list_t **objInstList) {
-    lwm2m_uri_t aclUri = {LWM2M_AC_OBJECT_ID, LWM2M_MAX_ID, LWM2M_MAX_ID, LWM2M_MAX_ID};
-    lwm2m_data_t *acInstances = NULL;
-    int acInstCount = 0;
     int result = COAP_205_CONTENT;
 
     LOG_ARG("Getting instances with support operation %d for object %d, server: %d", operation, targetObjP->objID, (serverP)? serverP->shortID : LWM2M_MAX_ID);
@@ -469,18 +518,45 @@ int ac_get_instances_with_support_operation(lwm2m_context_t * contextP, lwm2m_se
         return COAP_205_CONTENT;
     }
 
-    // Get Access Control Object instances
-    object_readData(contextP, NULL, &aclUri, &acInstCount, &acInstances);
-    if (acInstCount == 0) return COAP_500_INTERNAL_SERVER_ERROR;
+    // Update the policies if needed
+    if (_updateAcPolicies) {
+        if (prv_update_policy_cache(contextP)) _updateAcPolicies = false;
+        else LOG("Failed to update Access Control policies");
+    }
+
+    // Check Access Control Object instances
+    if (_acPolicies == NULL) return COAP_500_INTERNAL_SERVER_ERROR;
     
     // We have different logic for Access Control Object and other objects
-    if (targetObjP->objID == LWM2M_AC_OBJECT_ID) result = prv_get_supported_ac_instances(acInstances, acInstCount, serverP, objInstList);
-    else result = prv_get_supported_target_instances(acInstances, acInstCount, serverP, targetObjP->objID, operation, objInstList);
-    lwm2m_data_free(acInstCount, acInstances);
+    if (targetObjP->objID == LWM2M_AC_OBJECT_ID) result = prv_get_supported_ac_instances(_acPolicies, _acPoliciesCount, serverP, objInstList);
+    else result = prv_get_supported_target_instances(_acPolicies, _acPoliciesCount, serverP, targetObjP->objID, operation, objInstList);
 
     LOG_ARG("Result of getting instances with support operation %d for object %d is %d, %s", operation, targetObjP->objID, result, (*objInstList)? "list is not empty" : "list is empty");
 
     return result;
+}
+
+/**
+ * @brief Update Access Control policy
+ */
+void lwm2m_ac_request_policy_update(lwm2m_context_t * contextP, bool immediately) {
+    LOG_ARG("Request to update Access Control Object, immediately: %s", immediately ? "true" : "false");
+    _updateAcPolicies = true;
+    if (immediately) {
+        prv_update_policy_cache(contextP);
+        _updateAcPolicies = false;
+    }
+}
+
+/**
+ * @brief Clear Access Control policy
+*/
+void lwm2m_ac_clear_policy(lwm2m_context_t * contextP) {
+    LOG("Clearing Access Control Object policy");
+    if (_acPolicies != NULL) lwm2m_data_free(_acPoliciesCount, _acPolicies);
+    _acPolicies = NULL;
+    _acPoliciesCount = 0;
+    _updateAcPolicies = true;
 }
 
 #endif  // LWM2M_CLIENT_MODE

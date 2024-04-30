@@ -863,6 +863,17 @@ void lwm2m_update_server_lifetime(lwm2m_context_t * contextP, uint16_t serverId,
 int lwm2m_send_operation(lwm2m_context_t * contextP, lwm2m_uri_t * uriP);
 void lwm2m_update_server_mute(lwm2m_context_t * contextP, uint16_t serverId, bool muteSend);
 #endif // LWM2M_SUPPORT_SENML_JSON
+
+// AC object functionality
+// Request an update of AC policy from the client storage of data,
+// should be called when the client or server have updated the AC policy.
+// If immediately is true, the update is done immediately, otherwise it is
+// done at the next operation that requirs AC check.
+void lwm2m_ac_request_policy_update(lwm2m_context_t * contextP, bool immediately);
+// Clear the AC policy, should be called when the client is cleared.
+// Policy will be restored from the client storage at the next operation,
+// that requires AC check.
+void lwm2m_ac_clear_policy(lwm2m_context_t * contextP);
 #endif // LWM2M_CLIENT_MODE
 
 #ifdef LWM2M_SERVER_MODE
