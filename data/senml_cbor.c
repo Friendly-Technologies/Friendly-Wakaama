@@ -315,7 +315,7 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
                     return -1; 
                 }
                 if (newData->value.asChildren.count > 0){
-                    memcpy(tempChild, newData->value.asChildren.array, newData->value.asChildren.count);
+                    memcpy(tempChild, newData->value.asChildren.array, newData->value.asChildren.count * sizeof(newData->value.asChildren));
                     lwm2m_free(newData->value.asChildren.array);
                 }
                 newData->value.asChildren.count++;
@@ -546,6 +546,7 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
                 }
                 resCount = tmpDataP->value.asChildren.count;
                 *dataP = tmpDataP->value.asChildren.array;
+                lwm2m_free(tmpDataP);
                 return resCount;
             }
         }///!arrLen > 0
