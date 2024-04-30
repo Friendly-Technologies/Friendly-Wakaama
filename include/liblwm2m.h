@@ -869,7 +869,7 @@ void lwm2m_update_server_mute(lwm2m_context_t * contextP, uint16_t serverId, boo
 // should be called when the client or server have updated the AC policy.
 // If immediately is true, the update is done immediately, otherwise it is
 // done at the next operation that requirs AC check.
-void lwm2m_ac_request_policy_update(lwm2m_context_t * contextP, bool immediately);
+void lwm2m_ac_request_update_policy(lwm2m_context_t * contextP, bool immediately);
 // Clear the AC policy, should be called when the client is cleared.
 // Policy will be restored from the client storage at the next operation,
 // that requires AC check.

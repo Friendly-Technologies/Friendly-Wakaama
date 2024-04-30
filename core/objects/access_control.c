@@ -539,7 +539,7 @@ int ac_get_instances_with_support_operation(lwm2m_context_t * contextP, lwm2m_se
 /**
  * @brief Update Access Control policy
  */
-void lwm2m_ac_request_policy_update(lwm2m_context_t * contextP, bool immediately) {
+void lwm2m_ac_request_update_policy(lwm2m_context_t * contextP, bool immediately) {
     LOG_ARG("Request to update Access Control Object, immediately: %s", immediately ? "true" : "false");
     _updateAcPolicies = true;
     if (immediately) {
