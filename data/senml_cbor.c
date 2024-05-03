@@ -226,7 +226,9 @@ CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t siz
     CborError err;
     lwm2m_uri_t uri;
     lwm2m_data_t* newData;
-
+    
+    (void)instId;
+    
     err = cbor_value_enter_container(array, &map); // Entering each map
     if (err != CborNoError)
     {
