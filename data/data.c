@@ -806,6 +806,11 @@ int lwm2m_data_parse(lwm2m_uri_t * uriP,
         LOG("CBOR cbor_parse ");
         return cbor_parse(uriP, buffer, bufferLen, dataP);
 #endif
+#ifdef LWM2M_SUPPORT_SENML_CBOR
+    case LWM2M_CONTENT_SENML_CBOR:
+        LOG("CBOR senml_cbor_parse ");
+        return senml_cbor_parse(uriP, buffer, bufferLen, dataP);
+#endif
 
 #ifdef LWM2M_SUPPORT_JSON
 #ifdef LWM2M_OLD_CONTENT_FORMAT_SUPPORT
@@ -921,6 +926,11 @@ int lwm2m_data_serialize(lwm2m_uri_t * uriP,
         }
         #endif
         return cbor_serialize(size, dataP, bufferP);
+#endif
+#ifdef LWM2M_SUPPORT_SENML_CBOR
+    case LWM2M_CONTENT_SENML_CBOR:
+        LOG("CBOR senml_cbor_serialize ");
+        return senml_cbor_serialize(uriP, size, dataP, bufferP);
 #endif
 
 #ifdef LWM2M_CLIENT_MODE
