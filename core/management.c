@@ -99,6 +99,41 @@ static int prv_readAttributes(multi_option_t * query,
             if (query->len != ATTR_MAX_PERIOD_LEN - 1) return -1;
 
             attrP->toClear |= LWM2M_ATTR_FLAG_MAX_PERIOD;
+        } 
+        else if (lwm2m_strncmp((char *)query->data, ATTR_EMIN_PERIOD_STR, ATTR_EMIN_PERIOD_LEN) == 0)
+        {
+            if (0 != ((attrP->toSet | attrP->toClear) & LWM2M_ATTR_FLAG_EMIN_PERIOD)) return -1;
+            if (query->len == ATTR_EMIN_PERIOD_LEN) return -1;
+
+            if (1 != utils_textToInt(query->data + ATTR_EMIN_PERIOD_LEN, query->len - ATTR_EMIN_PERIOD_LEN, &intValue)) return -1;
+            if (intValue < 0) return -1;
+
+            attrP->toSet |= LWM2M_ATTR_FLAG_EMIN_PERIOD;
+            attrP->minPeriod = intValue;
+        }
+        else if (lwm2m_strncmp((char *)query->data, ATTR_EMIN_PERIOD_STR, ATTR_EMIN_PERIOD_LEN - 1) == 0)
+        {
+            if (0 != ((attrP->toSet | attrP->toClear) & LWM2M_ATTR_FLAG_EMIN_PERIOD)) return -1;
+            if (query->len != ATTR_EMIN_PERIOD_LEN - 1) return -1;
+
+            attrP->toClear |= LWM2M_ATTR_FLAG_EMIN_PERIOD;
+        }
+        else if (lwm2m_strncmp((char *)query->data, ATTR_EMAX_PERIOD_STR, ATTR_EMAX_PERIOD_LEN) == 0)
+        {
+            if (0 != ((attrP->toSet | attrP->toClear) & LWM2M_ATTR_FLAG_EMAX_PERIOD)) return -1;
+            if (query->len == ATTR_EMAX_PERIOD_LEN) return -1;
+
+            if (1 != utils_textToInt(query->data + ATTR_EMAX_PERIOD_LEN, query->len - ATTR_EMAX_PERIOD_LEN, &intValue)) return -1;
+            if (intValue < 0) return -1;
+
+            attrP->toSet |= LWM2M_ATTR_FLAG_EMAX_PERIOD;
+            attrP->maxPeriod = intValue;
+        }
+        else if (lwm2m_strncmp((char *)query->data, ATTR_EMAX_PERIOD_STR, ATTR_EMAX_PERIOD_LEN - 1) == 0) {
+            if (0 != ((attrP->toSet | attrP->toClear) & LWM2M_ATTR_FLAG_EMAX_PERIOD)) return -1;
+            if (query->len != ATTR_EMAX_PERIOD_LEN - 1) return -1;
+
+            attrP->toClear |= LWM2M_ATTR_FLAG_EMAX_PERIOD;
         }
         else if (lwm2m_strncmp((char *)query->data, ATTR_GREATER_THAN_STR, ATTR_GREATER_THAN_LEN) == 0)
         {

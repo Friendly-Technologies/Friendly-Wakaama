@@ -412,6 +412,14 @@ uint8_t observe_setParameters(lwm2m_context_t * contextP,
         {
             watcherP->parameters->maxPeriod = attrP->maxPeriod;
         }
+        if (attrP->toSet & LWM2M_ATTR_FLAG_EMIN_PERIOD)
+        {
+            watcherP->parameters->eminPeriod = attrP->eminPeriod;
+        }
+        if (attrP->toSet & LWM2M_ATTR_FLAG_EMAX_PERIOD)
+        {
+            watcherP->parameters->emaxPeriod = attrP->emaxPeriod;
+        }
         if (attrP->toSet & LWM2M_ATTR_FLAG_GREATER_THAN)
         {
             watcherP->parameters->greaterThan = attrP->greaterThan;
