@@ -391,6 +391,18 @@ int ac_create_instance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm
     if (NULL == targetP) return COAP_404_NOT_FOUND;
     if (NULL == targetP->createFunc) return COAP_405_METHOD_NOT_ALLOWED;
 
+    // Update the policies if needed
+    if (_updateAcPolicies) {
+        if (prv_update_policy_cache(contextP)) _updateAcPolicies = false;
+        else LOG("Failed to update Access Control policies");
+    }
+
+    // If the AC instance is already exist then we should not create it
+    if (prv_get_ac_instance_for_target(_acPolicies, _acPoliciesCount, uriP->objectId, uriP->instanceId)) {
+        LOG_ARG("AC instance already exist for target object instance: /%d/%d", uriP->objectId, uriP->instanceId);
+        return COAP_201_CREATED;
+    }
+
     // Prepare the Access Control Object Instance data
     resourcesData = (lwm2m_data_t *)lwm2m_malloc(LWM2M_AC_RES_CNT * sizeof(lwm2m_data_t));
     if (NULL == resourcesData) return COAP_500_INTERNAL_SERVER_ERROR;
@@ -468,7 +480,10 @@ int ac_delete_instance(lwm2m_context_t * contextP, lwm2m_uri_t * uriP) {
     if (_acPolicies == NULL) return COAP_202_DELETED;
     // Find the Access Control Object Instance
     acInstance = prv_get_ac_instance_for_target(_acPolicies, _acPoliciesCount, uriP->objectId, uriP->instanceId);
-    if (acInstance == NULL) return COAP_202_DELETED;
+    if (acInstance == NULL) {
+        LOG_ARG("AC instance already deleted for target object instance: /%d/%d", uriP->objectId, uriP->instanceId);
+        return COAP_202_DELETED;
+    }
 
     // Delete the Access Control Object Instance
     result = acObjectP->deleteFunc(contextP, NULL, acInstance->id, acObjectP);
