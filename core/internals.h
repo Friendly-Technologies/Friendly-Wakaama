@@ -220,6 +220,10 @@
 #define ATTR_MIN_PERIOD_LEN      5
 #define ATTR_MAX_PERIOD_STR      "pmax="
 #define ATTR_MAX_PERIOD_LEN      5
+#define ATTR_EMIN_PERIOD_STR     "epmin="
+#define ATTR_EMIN_PERIOD_LEN     6
+#define ATTR_EMAX_PERIOD_STR     "epmax="
+#define ATTR_EMAX_PERIOD_LEN     6
 #define ATTR_GREATER_THAN_STR    "gt="
 #define ATTR_GREATER_THAN_LEN    3
 #define ATTR_LESS_THAN_STR       "lt="

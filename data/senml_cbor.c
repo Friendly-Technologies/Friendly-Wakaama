@@ -535,6 +535,8 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
                 wrapStr->type = LWM2M_TYPE_OBJECT_INSTANCE;
                 wrapStr->value.asChildren.array = inData;
                 wrapStr->value.asChildren.count = resCount;
+                inData = wrapStr;
+                resCount = 1;
             }
             else if (LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP)){
                 if ((resCount != 1) || (inData->type != LWM2M_TYPE_MULTIPLE_RESOURCE)){
@@ -547,9 +549,8 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
                     return -1; 
                 }
                 resCount = tmpDataP->value.asChildren.count;
-                *dataP = tmpDataP->value.asChildren.array;
+                inData = tmpDataP->value.asChildren.array;
                 lwm2m_free(tmpDataP);
-                return resCount;
             }
         }///!arrLen > 0
         else {
