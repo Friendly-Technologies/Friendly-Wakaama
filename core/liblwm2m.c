@@ -211,7 +211,9 @@ void lwm2m_close(lwm2m_context_t * contextP)
 #endif
 
     prv_deleteTransactionList(contextP);
+    #ifdef LWM2M_CLIENT_MODE
     lwm2m_ac_clear_policy(contextP);
+    #endif
     lwm2m_free(contextP);
 }
 
