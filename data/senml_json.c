@@ -506,6 +506,7 @@ static bool prv_convertValue(const _record_t * recordP,
     case LWM2M_TYPE_OBJECT_INSTANCE:
     case LWM2M_TYPE_MULTIPLE_RESOURCE:
     case LWM2M_TYPE_CORE_LINK:
+        LOG_ARG("Invalid type: %d", recordP->value.type);
         /* Should never happen */
         return false;
     }
@@ -533,6 +534,9 @@ static int prv_convertRecord(const _record_t * recordArray,
     {
         lwm2m_data_t * targetP;
         int i;
+
+        // Skip if the value is not set
+        if (recordArray[index].ids[2] == LWM2M_MAX_ID) continue;
 
         targetP = json_findDataItem(rootP, count, recordArray[index].ids[0]);
         if (targetP == NULL)

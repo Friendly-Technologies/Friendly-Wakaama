@@ -425,7 +425,7 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
         if (dataCnt != 1) {
             LOG("Error occured during data parsing");
             lwm2m_data_free(dataCnt, *dataP);
-            dataP = NULL;
+            *dataP = NULL;
             return -1; 
         }
         dataCnt = tmpDataP->value.asChildren.count;
@@ -440,7 +440,7 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
         if (dataCnt != 1) {
             LOG("Error occured during data parsing");
             lwm2m_data_free(dataCnt, *dataP);
-            dataP = NULL;
+            *dataP = NULL;
             return -1; 
         }
         dataCnt = tmpDataP->value.asChildren.count;
@@ -452,10 +452,10 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
 
     if (LWM2M_URI_IS_SET_RESOURCE(uriP) && LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP)) {
         lwm2m_data_t *tmpDataP = *dataP;
-        if (tmpDataP == NULL) {
+        if (dataCnt != 1) {
             LOG("Error occured during data parsing");
             lwm2m_data_free(dataCnt, *dataP);
-            dataP = NULL;
+            *dataP = NULL;
             return -1;
         }
         dataCnt = tmpDataP->value.asChildren.count;
@@ -468,7 +468,7 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
     if (dataCnt != 1) {
         LOG("Error occured during data parsing");
         lwm2m_data_free(dataCnt, *dataP);
-        dataP = NULL;
+        *dataP = NULL;
         return -1;
     }
 
