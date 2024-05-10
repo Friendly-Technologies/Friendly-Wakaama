@@ -271,12 +271,11 @@ static lwm2m_data_t * prv_create_lwm2m_data_item_by_uri(lwm2m_data_t ** baseData
 }
 
 static size_t prv_generate_lwm2m_structure(CborValue cborArray, lwm2m_data_t ** dataP) {
-    CborError err;
     CborValue arrayElement;
 
     // Iterate over each element in the array
     if (cbor_value_enter_container(&cborArray, &arrayElement)) {
-        LOG_ARG("cbor_value_enter_container array FAILED with error %d", err);
+        LOG("cbor_value_enter_container array FAILED with error");
         goto error;
     }
 
@@ -329,7 +328,7 @@ static size_t prv_generate_lwm2m_structure(CborValue cborArray, lwm2m_data_t ** 
                 newDataP = prv_create_lwm2m_data_item_by_uri(dataP, &uri);
             } else if (newDataP) {
                 if (!prv_parse_value(mapEntry, keyValue, newDataP)) {
-                    LOG_ARG("prv_parse_value FAILED with error %d", err);
+                    LOG("prv_parse_value FAILED with error");
                     goto error;
                 }
             } else {
