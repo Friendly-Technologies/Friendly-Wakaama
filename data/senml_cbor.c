@@ -976,7 +976,7 @@ int senml_cbor_serialize(lwm2m_uri_t * uriP, int size, const lwm2m_data_t * data
         if((size == 1) && (dataP->type == LWM2M_TYPE_MULTIPLE_RESOURCE)){
             size = dataP->value.asChildren.count;
             dataP = dataP->value.asChildren.array;
-            if(size != 1) return -1;
+            if(size == 0) return -1;
         }
 
         arraySize = get_array_items_count(dataP, size); /// Counting data for the future SENML-CBOR array
