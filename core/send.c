@@ -86,6 +86,7 @@ int lwm2m_send_operation(lwm2m_context_t * contextP, lwm2m_uri_t * uriP) {
             lwm2m_free(payload);
             continue;
         }
+        lwm2m_free(payload);
 
         transaction->callback = NULL;
         transaction->userData = NULL;
