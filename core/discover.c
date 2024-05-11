@@ -157,6 +157,7 @@ static int prv_serializeAttributes(lwm2m_context_t * contextP,
 }
 
 static int prv_serializeLinkData(lwm2m_context_t * contextP,
+                                 lwm2m_uri_t * targetUriP,
                                  lwm2m_data_t * tlvP,
                                  lwm2m_server_t * serverP,
                                  lwm2m_attributes_t * objectParamP,
@@ -184,7 +185,6 @@ static int prv_serializeLinkData(lwm2m_context_t * contextP,
     case LWM2M_TYPE_BOOLEAN:
     case LWM2M_TYPE_OBJECT_LINK:
     case LWM2M_TYPE_CORE_LINK:
-    case LWM2M_TYPE_MULTIPLE_RESOURCE:
         if (bufferLen < LINK_ITEM_START_SIZE) return -1;
         memcpy(buffer + head, LINK_ITEM_START, LINK_ITEM_START_SIZE);
         head = LINK_ITEM_START_SIZE;
@@ -204,37 +204,22 @@ static int prv_serializeLinkData(lwm2m_context_t * contextP,
         if (res <= 0) return -1;
         head += res;
 
-        if (tlvP->type == LWM2M_TYPE_MULTIPLE_RESOURCE)
-        {
-            if (bufferLen - head < LINK_ITEM_DIM_START_SIZE) return -1;
-            memcpy(buffer + head, LINK_ITEM_DIM_START, LINK_ITEM_DIM_START_SIZE);
-            head += LINK_ITEM_DIM_START_SIZE;
-
-            res = utils_intToText(tlvP->value.asChildren.count, buffer + head, bufferLen - head);
-            if (res <= 0) return -1;
-            head += res;
-
-            if (bufferLen - head < LINK_ITEM_ATTR_END_SIZE) return -1;
-            memcpy(buffer + head, LINK_ITEM_ATTR_END, LINK_ITEM_ATTR_END_SIZE);
-            head += LINK_ITEM_ATTR_END_SIZE;
-        }
-        else
-        {
-            if (bufferLen - head < LINK_ITEM_END_SIZE) return -1;
-            memcpy(buffer + head, LINK_ITEM_END, LINK_ITEM_END_SIZE);
-            head += LINK_ITEM_END_SIZE;
-        }
+        if (bufferLen - head < LINK_ITEM_END_SIZE) return -1;
+        memcpy(buffer + head, LINK_ITEM_END, LINK_ITEM_END_SIZE);
+        head += LINK_ITEM_END_SIZE;
 
         if (serverP != NULL)
         {
             memcpy(&uri, parentUriP, sizeof(lwm2m_uri_t));
-            uri.resourceId = tlvP->id;
+            if (LWM2M_URI_IS_SET_RESOURCE(parentUriP)) uri.resourceInstanceId = tlvP->id;
+            else uri.resourceId = tlvP->id;
+            
             res = prv_serializeAttributes(contextP, &uri, serverP, objectParamP, buffer, head - 1, bufferLen);
             if (res < 0) return -1;    // careful, 0 is valid
             if (res > 0) head += res;
         }
         break;
-
+    case LWM2M_TYPE_MULTIPLE_RESOURCE:
     case LWM2M_TYPE_OBJECT_INSTANCE:
     {
         uint8_t uriStr[URI_MAX_STRING_LEN];
@@ -261,24 +246,39 @@ static int prv_serializeLinkData(lwm2m_context_t * contextP,
         uriLen += res;
 
         memcpy(&uri, parentUriP, sizeof(lwm2m_uri_t));
-        uri.instanceId = tlvP->id;
+
+        if (tlvP->type == LWM2M_TYPE_MULTIPLE_RESOURCE) uri.resourceId = tlvP->id;
+        else uri.instanceId = tlvP->id;
 
         head = 0;
         PRV_CONCAT_STR(buffer, bufferLen, head, LINK_ITEM_START, LINK_ITEM_START_SIZE);
         PRV_CONCAT_STR(buffer, bufferLen, head, uriStr, uriLen);
-        PRV_CONCAT_STR(buffer, bufferLen, head, LINK_ITEM_END, LINK_ITEM_END_SIZE);
+        if (tlvP->type == LWM2M_TYPE_MULTIPLE_RESOURCE)
+        {
+            PRV_CONCAT_STR(buffer, bufferLen, head, LINK_ITEM_DIM_START, LINK_ITEM_DIM_START_SIZE);
+            res = utils_intToText(tlvP->value.asChildren.count, buffer + head, bufferLen - head);
+            if (res <= 0) return -1;
+            head += res;
+        } else {
+            PRV_CONCAT_STR(buffer, bufferLen, head, LINK_ITEM_END, LINK_ITEM_END_SIZE);
+        }
+        PRV_CONCAT_STR(buffer, bufferLen, head, LINK_ITEM_ATTR_END, LINK_ITEM_ATTR_END_SIZE);
+
         if (serverP != NULL)
         {
-            res = prv_serializeAttributes(contextP, &uri, serverP, NULL, buffer, head - 1, bufferLen);
+            res = prv_serializeAttributes(contextP, &uri, serverP, objectParamP, buffer, head - 1, bufferLen);
             if (res < 0) return -1;    // careful, 0 is valid
-            if (res == 0) head = 0;    // rewind
             else head += res;
         }
-        for (index = 0; index < tlvP->value.asChildren.count; index++)
+
+        if (tlvP->type != LWM2M_TYPE_MULTIPLE_RESOURCE || LWM2M_URI_IS_SET_RESOURCE(targetUriP))
         {
-            res = prv_serializeLinkData(contextP, tlvP->value.asChildren.array + index, serverP, objectParamP, &uri, uriStr, uriLen, buffer + head, bufferLen - head);
-            if (res < 0) return -1;
-            head += res;
+            for (index = 0; index < tlvP->value.asChildren.count; index++)
+            {
+                res = prv_serializeLinkData(contextP, targetUriP, tlvP->value.asChildren.array + index, serverP, NULL, &uri, uriStr, uriLen, buffer + head, bufferLen - head);
+                if (res < 0) return -1;
+                head += res;
+            }
         }
     }
     break;
@@ -306,11 +306,15 @@ int discover_serialize(lwm2m_context_t * contextP,
     int res;
     lwm2m_uri_t parentUri;
     lwm2m_uri_t baseUri;
+    lwm2m_uri_t targetUriP;
     lwm2m_attributes_t * paramP;
     lwm2m_attributes_t mergedParam;
 
     LOG_ARG("size: %d", size);
     LOG_URI(uriP);
+
+    LWM2M_URI_RESET(&targetUriP);
+    memcpy(&targetUriP, uriP, sizeof(targetUriP));
 
     head = 0;
     LWM2M_URI_RESET(&parentUri);
@@ -427,7 +431,7 @@ int discover_serialize(lwm2m_context_t * contextP,
 
     for (index = 0; index < size && head < PRV_LINK_BUFFER_SIZE; index++)
     {
-        res = prv_serializeLinkData(contextP, dataP + index, serverP, paramP, uriP, baseUriStr, baseUriLen, bufferLink + head, PRV_LINK_BUFFER_SIZE - head);
+        res = prv_serializeLinkData(contextP, &targetUriP, dataP + index, serverP, paramP, uriP, baseUriStr, baseUriLen, bufferLink + head, PRV_LINK_BUFFER_SIZE - head);
         if (res < 0) return -1;
         head += res;
     }
