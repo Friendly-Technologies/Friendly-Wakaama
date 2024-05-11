@@ -309,7 +309,7 @@ int prv_handle_observe_operation(lwm2m_context_t * contextP,
     else
     {
         length = (size_t)res;
-        LOG_ARG("Observe Request[/%d/%d/%d]: %.*s\n", uriP->objectId, uriP->instanceId, uriP->resourceId, length, STR_NULL2EMPTY(buffer));
+        LOG_ARG("Observe Request[/%d/%d/%d/%d]: %d\n", uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId, length);
     }
     lwm2m_data_free(size, dataP);
 
