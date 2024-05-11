@@ -59,76 +59,63 @@ int countBackSlashes(const char* str) {
 /// @param mapValP 
 /// @param dataP 
 /// @return 
-CborError prv_parse_value(CborValue* valueP, uint64_t mapValP, lwm2m_data_t *dataP)
+bool prv_parse_value(CborValue valueP, uint64_t mapValP, lwm2m_data_t *dataP)
 {
-    CborError err;
-
     switch (mapValP)
     {
         case SENML_CBOR_MAP_TIME:
-            err = cbor_value_get_int64_checked(valueP, &dataP->value.asInteger);
-            if (err != CborNoError)
+            if (cbor_value_get_int64_checked(&valueP, &dataP->value.asInteger))
             {
-                LOG_ARG("cbor_value_get_int64_checked FAILED with err=%d\n", err);
-                return -1;
+                LOG("cbor_value_get_int64_checked FAILED with");
+                return false;
             }
             dataP->type = LWM2M_TYPE_TIME; /// SENML-CBOR does not need the tag-time, it has time-map-key instead 
             break;
         case SENML_CBOR_MAP_VALUE:
-            if (cbor_value_is_unsigned_integer(valueP)){
-                err = cbor_value_get_uint64(valueP, &dataP->value.asUnsigned);
-                if (err != CborNoError)
+            if (cbor_value_is_unsigned_integer(&valueP)){
+                if (cbor_value_get_uint64(&valueP, &dataP->value.asUnsigned))
                 {
-                    LOG_ARG("cbor_value_get_uint64 FAILED with error %d", err);
+                    LOG("cbor_value_get_uint64 FAILED with error");
                     lwm2m_free(dataP);
-                    return -1;
+                    return false;
                 }
                 dataP->type = LWM2M_TYPE_UNSIGNED_INTEGER;
                 break;
             }
-            else if (cbor_value_is_integer(valueP)){
-                err = cbor_value_get_int64_checked(valueP, &dataP->value.asInteger);
-                if (err != CborNoError)
+            else if (cbor_value_is_integer(&valueP)){
+                if (cbor_value_get_int64_checked(&valueP, &dataP->value.asInteger))
                 {
-                    LOG_ARG("cbor_value_get_int64_checked FAILED with error %d", err);
-                    lwm2m_free(dataP);
-                    return -1;
+                    LOG("cbor_value_get_int64_checked FAILED with error");
+                    return false;
                 }
                 dataP->type = LWM2M_TYPE_INTEGER;
                 break;
             }
-            else if (cbor_value_is_double(valueP)){
-                err = cbor_value_get_double(valueP, &dataP->value.asFloat);
-                if (err != CborNoError)
+            else if (cbor_value_is_double(&valueP)){
+                if (cbor_value_get_double(&valueP, &dataP->value.asFloat))
                 {
-                    LOG_ARG("cbor_value_get_double FAILED with error %d", err);
-                    lwm2m_free(dataP);
-                    return -1;
+                    LOG("cbor_value_get_double FAILED with error");
+                    return false;
                 }
                 dataP->type = LWM2M_TYPE_FLOAT;
                 break;
             }
-            else if (cbor_value_is_float(valueP)){
+            else if (cbor_value_is_float(&valueP)){
                 float tempFloatValue;
-                err = cbor_value_get_float(valueP, &tempFloatValue);
-                if (err != CborNoError)
+                if (cbor_value_get_float(&valueP, &tempFloatValue))
                 {
-                    LOG_ARG("cbor_value_get_float FAILED with error %d", err);
-                    lwm2m_free(dataP);
-                    return -1;
+                    LOG("cbor_value_get_float FAILED with error");
+                    return false;
                 }
                 dataP->value.asFloat = (double)tempFloatValue;
                 dataP->type = LWM2M_TYPE_FLOAT;
                 break;
             }
-            else if (cbor_value_is_half_float(valueP)){
+            else if (cbor_value_is_half_float(&valueP)){
                 float tempFloatValue;
-                err = cbor_value_get_half_float_as_float(valueP, &tempFloatValue);
-                if (err != CborNoError)
-                {
-                    LOG_ARG("cbor_value_get_half_float_as_float FAILED with error %d", err);
-                    lwm2m_free(dataP);
-                    return -1;
+                if (cbor_value_get_half_float_as_float(&valueP, &tempFloatValue)) {
+                    LOG("cbor_value_get_half_float_as_float FAILED with error");
+                    return false;
                 }
                 dataP->value.asFloat = (double)tempFloatValue;
                 dataP->type = LWM2M_TYPE_FLOAT;
@@ -138,320 +125,247 @@ CborError prv_parse_value(CborValue* valueP, uint64_t mapValP, lwm2m_data_t *dat
         case SENML_CBOR_MAP_OPAQUE:
             {
                 uint8_t *temp = NULL;
-                size_t temPlen = 0;
-              
-                err = cbor_value_calculate_string_length(valueP, &temPlen);
-                if (err != CborNoError) {
-                    LOG_ARG("cbor_value_calculate_string_length FAILED with error %d", err);
-                    lwm2m_free(dataP);
-                    return -1;
-                }
-
-                temp = (uint8_t *)lwm2m_malloc(temPlen);
-                if (temp == NULL) {
-                    LOG("Error: lwm2m_malloc fro temp failed\n");
-                    lwm2m_free(dataP);
-                    return -1;
-                }
-
-                err = cbor_value_dup_byte_string(valueP, &temp, &temPlen, valueP);
-                if (err!= CborNoError){
-                    LOG_ARG("cbor_value_dup_byte_string FAILED with error %d", err);
-                    lwm2m_free(dataP);
-                    return -1;     
+                size_t tempLen = 0;
+                if (cbor_value_dup_byte_string(&valueP, &temp, &tempLen, NULL)) {
+                    LOG("cbor_value_dup_byte_string FAILED with error");
+                    return false;     
                 }
                 dataP->value.asBuffer.buffer = (uint8_t *)temp;
-                dataP->value.asBuffer.length = temPlen;
+                dataP->value.asBuffer.length = tempLen;
                 dataP->type = LWM2M_TYPE_OPAQUE;
                 break;
             }
         case SENML_CBOR_MAP_STRING_VALUE:
             {
                 char *temp = NULL;
-                size_t temPlen = 0;
-
-                err = cbor_value_calculate_string_length(valueP, &temPlen);
-                if (err != CborNoError) {
-                    LOG_ARG("cbor_value_calculate_string_length FAILED with error %d", err);
-                    lwm2m_free(dataP);
-                    return -1;
-                }
-
-                temp = (char *)lwm2m_malloc(temPlen);
-                if (temp == NULL) {
-                    LOG("Error: Memory allocation for temp failed !!!");
-                    lwm2m_free(dataP);
-                    return -1;
-                }
-
-                err = cbor_value_dup_text_string(valueP, &temp, &temPlen, valueP);
-                if (err!= CborNoError){
-                    LOG_ARG("cbor_value_dup_text_string FAILED with error %d", err);
-                    lwm2m_free(dataP);
-                    return -1;
+                size_t tempLen = 0;
+                if (cbor_value_dup_text_string(&valueP, &temp, &tempLen, NULL)) {
+                    LOG("cbor_value_dup_text_string FAILED with error");
+                    return false;
                 }
 
                 dataP->value.asBuffer.buffer = (uint8_t *)temp;
-                dataP->value.asBuffer.length = temPlen;
+                dataP->value.asBuffer.length = tempLen;
                 dataP->type = LWM2M_TYPE_STRING;
                 break;
             }
         case SENML_CBOR_MAP_BOOL_VALUE:
-            err = cbor_value_get_boolean(valueP, &dataP->value.asBoolean);
-            if (err != CborNoError)
+            if (cbor_value_get_boolean(&valueP, &dataP->value.asBoolean))
             {
-                LOG_ARG("cbor_value_get_boolean FAILED with error %d", err);
-                lwm2m_free(dataP);
-                return -1;
+                LOG("cbor_value_get_boolean FAILED with error");
+                return false;
             }
             dataP->type = LWM2M_TYPE_BOOLEAN;
             break;
         default:
-            LOG_ARG("Error: Senml Cbor Wrong MapType 0x%x\n", mapValP);
-            lwm2m_free(dataP);
-            return -1; 
-            break;
-    }///!switch-case
-    return err;
+            LOG_ARG("Error: Senml Cbor Wrong MapType 0x%x", mapValP);
+            return false; 
+    }
+
+    return true;
 }
 
-/// @brief Function that parses the resources
-/// @param array 
-/// @param dataP 
-/// @param sizeDataP 
-/// @return 
-CborError prv_parse_resources(CborValue* array, lwm2m_data_t * dataP, size_t sizeDataP, uint16_t instId)
-{
-    CborValue map;
-    CborError err;
-    lwm2m_uri_t uri;
-    lwm2m_data_t* newData;
-    
-    (void)instId;
-    
-    err = cbor_value_enter_container(array, &map); // Entering each map
-    if (err != CborNoError)
-    {
-        LOG_ARG("cbor_value_enter_container map FAILED with error %d", err);
-        lwm2m_free(dataP);
-        return -1;
+static lwm2m_data_t * prv_crate_lwm2m_data_children(lwm2m_data_t * baseDataP, uint16_t id, lwm2m_data_type_t type) {
+    lwm2m_data_t *children = NULL;
+
+    if (baseDataP == NULL) {
+        LOG("Error: baseDataP is NULL");
+        return NULL;
     }
 
-    while (!cbor_value_at_end(&map)) 
-    {
-        err = cbor_value_advance(&map);    // Skiping the key
-        if (err != CborNoError) {
-            LOG_ARG("cbor_value_advance FAILED with err=%d", err);
-            lwm2m_free(dataP);
-            return -1;
-        }  
-        CborType typeMap = cbor_value_get_type(&map); // Getting the value
-        if (typeMap == CborTextStringType) 
-        {
-            char *uriStr = NULL;
-            size_t uriStrlen = 0;
-            
-            err = cbor_value_get_string_length(&map, &uriStrlen); /// getting uri-length
-            if (err != CborNoError) {
-                LOG_ARG("Error%d: cbor_value_calculate_string_length", err);
-                lwm2m_free(dataP);
-                return -1;
+    if (baseDataP->value.asChildren.count == 0) {
+        children = lwm2m_data_new(1);
+        if (children == NULL) {
+            return NULL;
+        }
+        children->id = id;
+        children->type = type;
+        baseDataP->value.asChildren.array = children;
+        baseDataP->value.asChildren.count = 1;
+    } else {
+        size_t chCnt = baseDataP->value.asChildren.count;
+        lwm2m_data_t *chArr = baseDataP->value.asChildren.array;
+        for (size_t i = 0; i < chCnt; i++) {
+            if (chArr[i].id == id) {
+                children = &chArr[i];
+                break;
             }
-
-            uriStr = (char *)lwm2m_malloc(uriStrlen);
-            if (uriStr == NULL) {
-                LOG("Error: Memory allocation for uriStr failed");
-                lwm2m_free(dataP);
-                return -1;
+        }
+        if (children == NULL) {
+            lwm2m_data_t *tmpArr = lwm2m_data_new(chCnt + 1);
+            if (tmpArr == NULL) {
+                return NULL;
             }
-            
-            err = cbor_value_dup_text_string(&map, &uriStr, &uriStrlen, &map); /// getting uri itself
-            if (err!= CborNoError){
-                LOG_ARG("Error%d: cbor_value_dup_text_string\n", err);
-                lwm2m_free(dataP);
-                return -1;
-            }
-
-            int slashCount = countBackSlashes(uriStr);
-            lwm2m_stringToUri(uriStr, uriStrlen, &uri );
-            instId = uri.instanceId; /// here we take the instance id from the map-uri and will pass it further if needed
-            newData = NULL;
-
-            if (slashCount == 3){
-                for (size_t i = 0; i < sizeDataP; i++){
-                    if (dataP[i].id == MAX_URI_VAL){
-                        newData = &dataP[i];
-                        newData->id = uri.resourceId;
-                        break;
-                    }
-                }
-                if (newData == NULL){
-                    LOG("Some error occured (slashCount==3)! newData is NULL !!! ");
-                    lwm2m_free(dataP);
-                }
-            }///!slashCount3
-            else if (slashCount == 4){
-                for (size_t i = 0; i < sizeDataP; i++){
-                    if (dataP[i].id == uri.resourceId){
-                        newData = &dataP[i];
-                        break;
-                    }
-                }
-                if (newData == NULL){
-                    for (size_t i = 0; i < sizeDataP; i++){
-                        if (dataP[i].id == MAX_URI_VAL){
-                            newData = &dataP[i];
-                            newData->id = uri.resourceId;
-                            newData->type = LWM2M_TYPE_MULTIPLE_RESOURCE;
-                            break;
-                        }
-                    }
-                    if (newData == NULL){
-                        LOG("Some error occured(slashCount==4)! newData is NULL !!! ");
-                        lwm2m_free(dataP);
-                    }
-                }
-                lwm2m_data_t* tempChild = lwm2m_data_new(newData->value.asChildren.count + 1);/// copying resource
-                if (tempChild == NULL) {
-                    LOG("lwm2m_data_new for tempChild FAILED");
-                    return -1; 
-                }
-                if (newData->value.asChildren.count > 0){
-                    memcpy(tempChild, newData->value.asChildren.array, newData->value.asChildren.count * sizeof(newData->value.asChildren));
-                    lwm2m_free(newData->value.asChildren.array);
-                }
-                newData->value.asChildren.count++;
-                newData->value.asChildren.array = tempChild;
-                newData->value.asChildren.array[newData->value.asChildren.count - 1].id = uri.resourceInstanceId;
-                newData = &newData->value.asChildren.array[newData->value.asChildren.count - 1];
-            }///!slashCount 4
-
-            uint64_t valKey;
-            if (cbor_value_is_unsigned_integer(&map))///getting map-key for the value
-            {
-                err = cbor_value_get_uint64(&map, &valKey);
-                if (err != CborNoError)
-                {
-                    LOG_ARG("cbor_value_get_uint64 FAILED with error %d", err);
-                    lwm2m_free(dataP);
-                    return -1;
-                }
-            }
-            err = cbor_value_advance_fixed(&map);
-            if (err != CborNoError)
-            {
-                LOG_ARG("cbor_value_advance_fixed FAILED with error %d", err);
-                lwm2m_free(dataP);
-                return -1;
-            }
-            err = prv_parse_value(&map, valKey, newData);
-            if (err != CborNoError)
-            {
-                LOG_ARG("prv_parse_value FAILED with error %d", err);
-                lwm2m_free(dataP);
-                return -1;
-            }
-        }///!typeMap
-    }///!while not end map
-    err = cbor_value_leave_container(array, &map); /// leave the map
-    if (err != CborNoError)
-    {
-        LOG_ARG("cbor_value_leave_container array FAILED with error %d", err);
-        lwm2m_free(dataP);
-        return -1;
+            memcpy(tmpArr, chArr, chCnt * sizeof(lwm2m_data_t));
+            lwm2m_free(chArr);
+            baseDataP->value.asChildren.array = tmpArr;
+            baseDataP->value.asChildren.count++;
+            children = &baseDataP->value.asChildren.array[chCnt];
+            children->id = id;
+            children->type = type;
+        }
     }
-    
-    return err;
+
+    return children;
 }
 
-/// @brief Function that counts the resources in the SENML-CBOR array (if their uris are equal to 3 
-/// or if there are several resources with uri==4 and same resourceID)
-/// @param array 
-/// @param length 
-/// @return 
-size_t prv_count_resources_in_array(CborValue* array, size_t length) 
-{
-    CborValue map;
-    CborError err;
-    CborValue arrayStart; ///creating a separate cbor-value struct to save the array's start
-    uint16_t idsArray[length]; // Array to store IDs
-    size_t numIds;
-    int resourceCount = 0;
+static lwm2m_data_t * prv_create_lwm2m_data_item_by_uri(lwm2m_data_t ** baseDataP, lwm2m_uri_t *uriP) {
+    lwm2m_data_t *objItem = NULL;
+    lwm2m_data_t *instItem = NULL;
+    lwm2m_data_t *resItem = NULL;
+    lwm2m_data_t *resInstItem = NULL;
 
-    err = cbor_value_enter_container(array, array); // Enter the CBOR array
-    if (err != CborNoError)
-    {
-        LOG_ARG("cbor_value_enter_container array FAILED with error %d", err);
-        return -1;
+    if (baseDataP == NULL || uriP == NULL) {
+        LOG("Error: baseDataP or uri is NULL");
+        return NULL;
     }
-    arrayStart = *array; // Save the starting position of the array
+    if (uriP->objectId == LWM2M_MAX_ID) {
+        LOG("Error: Object ID is not set");
+        return NULL;
+    }
 
-    // Iterate through each map in the array
-    while (!cbor_value_at_end(array)) 
-    {
-        err = cbor_value_enter_container(array, &map); // Enter each map
-        if (err != CborNoError)
-        {
-            LOG_ARG("cbor_value_enter_container map FAILED with error %d", err);
-            return -1;
+    // Find the object
+    if (*baseDataP == NULL) {
+        objItem = lwm2m_data_new(1);
+        if (objItem == NULL) {
+            return NULL;
+        }
+        objItem->id = uriP->objectId;
+        objItem->type = LWM2M_TYPE_OBJECT;
+        *baseDataP = objItem;
+    } else if ((*baseDataP)->id == uriP->objectId) {
+        objItem = *baseDataP;
+    } else {
+        LOG("Error: Object ID does not match");
+        return NULL;
+    }
+    // Return the object if no instance is set
+    if (!LWM2M_URI_IS_SET_INSTANCE(uriP)) return objItem;
+
+    // Find or create the object instance
+    instItem = prv_crate_lwm2m_data_children(objItem, uriP->instanceId, LWM2M_TYPE_OBJECT_INSTANCE);
+    if (instItem == NULL) {
+        LOG("Error: Failed to create object instance");
+        return NULL;
+    }
+    // Return the object instance if no resource is set
+    if (!LWM2M_URI_IS_SET_RESOURCE(uriP)) return instItem;
+
+    // Find or create the resource
+    resItem = prv_crate_lwm2m_data_children(instItem, uriP->resourceId, LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP)? LWM2M_TYPE_MULTIPLE_RESOURCE : LWM2M_TYPE_UNDEFINED);
+    if (resItem == NULL) {
+        LOG("Error: Failed to create resource");
+        return NULL;
+    }
+    // Return the resource if no resource instance is set
+    if (!LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP)) return resItem;
+
+    // Find or create the resource instance
+    resInstItem = prv_crate_lwm2m_data_children(resItem, uriP->resourceInstanceId, LWM2M_TYPE_UNDEFINED);
+    if (resInstItem == NULL) {
+        LOG("Error: Failed to create resource instance");
+        return NULL;
+    }
+
+    return resInstItem;
+}
+
+static size_t prv_generate_lwm2m_structure(CborValue cborArray, lwm2m_data_t ** dataP) {
+    CborValue arrayElement;
+
+    // Iterate over each element in the array
+    if (cbor_value_enter_container(&cborArray, &arrayElement)) {
+        LOG("cbor_value_enter_container array FAILED with error");
+        goto error;
+    }
+
+    // Throw away the array container
+    while (!cbor_value_at_end(&arrayElement)) {
+        CborValue mapEntry;
+        size_t mapSize = 0;
+        lwm2m_data_t *newDataP = NULL;
+        
+        if (cbor_value_get_type(&arrayElement) != CborMapType) {
+            LOG("Expected a map in array");
+            goto error;
+        }
+        if (cbor_value_get_map_length(&arrayElement, &mapSize) || mapSize != 2) {
+            LOG("Error getting map length or incorrect map size");
+            goto error;
         }
 
-        while (!cbor_value_at_end(&map)) 
-        {
-            err = cbor_value_advance(&map);/// Skip the key
-            if (err != CborNoError) {
-                LOG_ARG("cbor_value_advance FAILED with error %d", err);
-                return -1;
-            }  
-            CborType typeMap = cbor_value_get_type(&map);// Get the value
-            if (typeMap == CborTextStringType) 
-            {
-                size_t len;
-                char *text;
-                
-                err = cbor_value_dup_text_string(&map, &text, &len, NULL);
-                if (err != CborNoError) {
-                    LOG_ARG("cbor_value_dup_text_string FAILED with error %d", err);
-                    return -1;
-                } 
-                int backslashCount = countBackSlashes(text);
-                if (backslashCount == 3) {
-                    resourceCount++;
-                }
-                else if (backslashCount == 4){
-                    lwm2m_uri_t uriFromMap;
-                    lwm2m_stringToUri(text, len, &uriFromMap);
-                    bool duplicateFound = false;
-                    for (size_t i = 0; i < numIds; i++) {
-                        if (idsArray[i] == uriFromMap.resourceId)
-                        {
-                            duplicateFound = true;/// if there are several resources with the same resourceID - it means they are truly resources
-                            resourceCount++;
-                            break;
-                        }
-                    }///!for
-                    if (!duplicateFound && numIds < length){
-                        idsArray[numIds++] = uriFromMap.resourceId;
-                    }
-                }
-    
-            }///!typeMap
-            err = cbor_value_advance(&map); /// Move to the next key-value pair
-            if (err != CborNoError) {
-                LOG_ARG("cbor_value_advance map FAILED with error %d", err);
-                return -1;
+        // Enter the map container
+        if (cbor_value_enter_container(&arrayElement, &mapEntry)) {
+            LOG("Error entering map container");
+            goto error;
+        }
+
+        // Throw away the map container
+        while (!cbor_value_at_end(&mapEntry)) {
+            // Process each key-value pair in the map
+            uint64_t keyValue;
+            if (cbor_value_get_uint64(&mapEntry, &keyValue)) {
+                LOG("Error getting key value");
+                goto error;
             }
-        }///!while not end map
-        err = cbor_value_leave_container(array, &map); /// leave the map
-        if (err != CborNoError)
-        {
-            LOG_ARG("cbor_value_leave_container array FAILED with error %d", err);
-            return -1;
-        }
-    }///!while not end of array
-    *array = arrayStart; /// Reset the array pointer to the starting position
 
-    return resourceCount;
+            // Move to the value
+            if (cbor_value_advance(&mapEntry)) {
+                LOG("Error advancing map entry");
+                goto error;
+            }
+
+            if (keyValue == SENML_CBOR_MAP_NAME) {
+                lwm2m_uri_t uri;
+                size_t len = URI_MAX_STRING_LEN;
+                char uriStr[len];
+                if (cbor_value_copy_text_string(&mapEntry, uriStr, &len, NULL)) {
+                    LOG("Error copying text string");
+                    goto error;
+                }
+                // Convert the URI string to a URI structure
+                lwm2m_stringToUri(uriStr, len, &uri);
+                newDataP = prv_create_lwm2m_data_item_by_uri(dataP, &uri);
+            } else if (newDataP) {
+                if (!prv_parse_value(mapEntry, keyValue, newDataP)) {
+                    LOG("prv_parse_value FAILED with error");
+                    goto error;
+                }
+            } else {
+                LOG_ARG("Unexpected key value: %d", keyValue);
+                goto error;
+            }
+
+            // Move to next map entry
+            if (cbor_value_advance(&mapEntry)) {
+                LOG("Error advancing map entry");
+                goto error;
+            }
+        }
+
+        // Leave the map container
+        if (cbor_value_leave_container(&arrayElement, &mapEntry)) {
+            LOG("Error leaving map container");
+            goto error;
+        }
+    }
+
+    // Leave the array container
+    if (cbor_value_leave_container(&cborArray, &arrayElement)) {
+        LOG("Error leaving array container");
+        goto error;
+    }
+
+    return 1;
+
+error:
+    LOG("Error in parsing CBOR array");
+    if (*dataP) {
+        // *dataP always contain one object instance
+        lwm2m_data_free(1, *dataP);
+        *dataP = NULL;
+    }
+    return 0;
 }
 
 /// @brief Main function to parse the SENML-CBOR arrays into the lwm2m_data_t structures
@@ -467,11 +381,8 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
 {
     CborParser parser;
     CborValue array;
-    CborError err;
-    lwm2m_data_t *inData = NULL; /// inner temporary buffer-like structure
     *dataP = NULL;               /// pointer to the final lwm2m struct
-    size_t arrLen = 0, resCount = 0;
-    uint16_t instId;
+    size_t arrLen = 0, dataCnt = 0;
 
     if (uriP == NULL){
         LOG("UriP is NULL, some error occured!");
@@ -479,92 +390,88 @@ int senml_cbor_parse(const lwm2m_uri_t * uriP,
     }
     LOG_URI(uriP);
     LOG_ARG("bufferLen: %d", bufferLen);
-    
-    err = cbor_parser_init(buffer, bufferLen, 0, &parser, &array);    
-    if (err != CborNoError)
+ 
+    if (cbor_parser_init(buffer, bufferLen, 0, &parser, &array))
     {
-        LOG_ARG("cbor_parser_init FAILED with error %d", err);
+        LOG("cbor_parser_init FAILED with error");
         return -1;
     }
 
-    CborType type = cbor_value_get_type(&array);
-
-    if (type == CborArrayType) 
+    if (cbor_value_get_type(&array) != CborArrayType) 
     {
-        err = cbor_value_get_array_length(&array, &arrLen);
-        if (err != CborNoError)
-        {
-            LOG_ARG("cbor_value_get_array_length FAILED with error %d", err);
-            return -1;
-        }
-        if (arrLen <= 0) {
-            LOG_ARG("wrong array length(%d) FAILED", arrLen);
-            return -1;
-        }
-
-        if (arrLen > 0) 
-        {
-            resCount = prv_count_resources_in_array(&array, arrLen);
-            inData = lwm2m_data_new(resCount);/// creating main-array-lwm2m_data struct
-            if (inData == NULL) {
-                LOG("lwm2m_data_new for inData FAILED");
-                return -1; 
-            }
-
-            for (size_t i = 0; i < resCount; i++){
-                inData[i].id = MAX_URI_VAL; /// filing the ids with the un-set value 
-            }
-
-            for (size_t i = 0; i < arrLen; i++) 
-            {
-                err = prv_parse_resources(&array, inData, resCount, instId);
-                if (err != CborNoError)
-                {
-                    LOG_ARG("prv_parse_resources FAILED with error %d", err);
-                    return -1;
-                }
-            }///!for
-
-            if (!LWM2M_URI_IS_SET_INSTANCE(uriP)){
-                lwm2m_data_t* wrapStr = lwm2m_data_new(1);
-                if (wrapStr == NULL) {
-                    LOG("lwm2m_data_new for wrapStr FAILED");
-                    return -1; 
-                }
-                wrapStr->id = instId;
-                wrapStr->type = LWM2M_TYPE_OBJECT_INSTANCE;
-                wrapStr->value.asChildren.array = inData;
-                wrapStr->value.asChildren.count = resCount;
-                inData = wrapStr;
-                resCount = 1;
-            }
-            else if (LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP)){
-                if ((resCount != 1) || (inData->type != LWM2M_TYPE_MULTIPLE_RESOURCE)){
-                    LOG("Some Error occured during !uriP->resourceInstanceId");
-                    return -1;
-                } 
-                lwm2m_data_t *tmpDataP = inData;
-                if (tmpDataP == NULL) {
-                    LOG("lwm2m_data_new for tmpDataP FAILED");
-                    return -1; 
-                }
-                resCount = tmpDataP->value.asChildren.count;
-                inData = tmpDataP->value.asChildren.array;
-                lwm2m_free(tmpDataP);
-            }
-        }///!arrLen > 0
-        else {
-            LOG_ARG("Array Length is <= 0(%d), error!", arrLen);
-            return -1;
-        }
-    }///!arrayType
-    else {
-        LOG_ARG("Error: type is not CborArrayType, (%d)", type);
+        LOG("Error: type is not CborArrayType");
         return -1;
     }
-    
-    *dataP = inData; /// copying parsed data into the final lwm2m_data struct
-    return resCount;
+
+    if (cbor_value_get_array_length(&array, &arrLen))
+    {
+        LOG("cbor_value_get_array_length FAILED with error");
+        return -1;
+    }
+    if (arrLen <= 0) {
+        LOG_ARG("wrong array length(%d) FAILED", arrLen);
+        return -1;
+    }
+
+    dataCnt = prv_generate_lwm2m_structure(array, dataP);
+    if (dataCnt == 0) {
+        LOG("prv_generate_lwm2m_structure FAILED");
+        return -1;
+    }
+
+    if (LWM2M_URI_IS_SET_OBJECT(uriP)) {
+        lwm2m_data_t *tmpDataP = *dataP;
+        if (dataCnt != 1) {
+            LOG("Error occured during data parsing");
+            lwm2m_data_free(dataCnt, *dataP);
+            *dataP = NULL;
+            return -1; 
+        }
+        dataCnt = tmpDataP->value.asChildren.count;
+        *dataP = tmpDataP->value.asChildren.array;
+        lwm2m_free(tmpDataP);
+    } else {
+        return dataCnt;
+    }
+
+    if (LWM2M_URI_IS_SET_INSTANCE(uriP)) {
+        lwm2m_data_t *tmpDataP = *dataP;
+        if (dataCnt != 1) {
+            LOG("Error occured during data parsing");
+            lwm2m_data_free(dataCnt, *dataP);
+            *dataP = NULL;
+            return -1; 
+        }
+        dataCnt = tmpDataP->value.asChildren.count;
+        *dataP = tmpDataP->value.asChildren.array;
+        lwm2m_free(tmpDataP);
+    } else {
+        return dataCnt;
+    }
+
+    if (LWM2M_URI_IS_SET_RESOURCE(uriP) && LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP)) {
+        lwm2m_data_t *tmpDataP = *dataP;
+        if (dataCnt != 1) {
+            LOG("Error occured during data parsing");
+            lwm2m_data_free(dataCnt, *dataP);
+            *dataP = NULL;
+            return -1;
+        }
+        dataCnt = tmpDataP->value.asChildren.count;
+        *dataP = tmpDataP->value.asChildren.array;
+        lwm2m_free(tmpDataP);
+    } else {
+        return dataCnt;
+    }
+
+    if (dataCnt != 1) {
+        LOG("Error occured during data parsing");
+        lwm2m_data_free(dataCnt, *dataP);
+        *dataP = NULL;
+        return -1;
+    }
+
+    return dataCnt;
 }
 
 /// @brief Function to encode a single simple value of data -> just like a simple CBOR format
