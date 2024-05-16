@@ -68,12 +68,12 @@ static int prv_getMandatoryInfo(lwm2m_context_t *contextP,
     int size;
     int64_t value;
 
-    size = 3;
+    // Get mandatory information
+    size = 2;
     dataP = lwm2m_data_new(size);
     if (dataP == NULL) return -1;
     dataP[0].id = LWM2M_SERVER_LIFETIME_ID;
     dataP[1].id = LWM2M_SERVER_BINDING_ID;
-    dataP[2].id = LWM2M_SERVER_MUTE_SEND_ID;
 
     if (objectP->readFunc(contextP, NULL, instanceID, &size, &dataP, objectP) != COAP_205_CONTENT)
     {
@@ -97,22 +97,45 @@ static int prv_getMandatoryInfo(lwm2m_context_t *contextP,
     {
         targetP->binding = BINDING_UNKNOWN;
     }
-
-    if (dataP[2].type == LWM2M_TYPE_BOOLEAN)
-    {
-        targetP->muteSend = dataP[2].value.asBoolean;
-    }
-    else
-    {
-        targetP->muteSend = true;
-    }
-
     lwm2m_data_free(size, dataP);
 
     if (targetP->binding == BINDING_UNKNOWN)
     {
         return -1;
     }
+
+    // Get optional information
+    size = 1;
+    dataP = lwm2m_data_new(size);
+    if (dataP == NULL) return -1;
+    dataP->id = LWM2M_SERVER_MUTE_SEND_ID;
+
+    objectP->readFunc(contextP, NULL, instanceID, &size, &dataP, objectP);
+    if (dataP->type == LWM2M_TYPE_BOOLEAN)
+    {
+        targetP->muteSend = dataP->value.asBoolean;
+    }
+    else
+    {
+        targetP->muteSend = true;
+    }
+    lwm2m_data_free(size, dataP);
+
+    size = 1;
+    dataP = lwm2m_data_new(size);
+    if (dataP == NULL) return -1;
+    dataP->id = LWM2M_SERVER_TIMEOUT_ID;
+
+    objectP->readFunc(contextP, NULL, instanceID, &size, &dataP, objectP);
+    if (dataP->type == LWM2M_TYPE_INTEGER)
+    {
+        targetP->disableTimeout = dataP->value.asBoolean;
+    }
+    else
+    {
+        targetP->disableTimeout = LWM2M_SERVER_DEFAULT_TIMEOUT_SEC;
+    }
+    lwm2m_data_free(size, dataP);
 
     return 0;
 }
@@ -1278,7 +1301,7 @@ uint8_t object_createInstance(lwm2m_context_t * contextP,
         return COAP_405_METHOD_NOT_ALLOWED;
     }
 
-    return targetP->createFunc(contextP, serverP, lwm2m_list_newId(targetP->instanceList), dataP->value.asChildren.count, dataP->value.asChildren.array, targetP);
+    return targetP->createFunc(contextP, serverP, dataP->id, dataP->value.asChildren.count, dataP->value.asChildren.array, targetP);
 }
 
 uint8_t object_writeInstance(lwm2m_context_t * contextP,
@@ -1313,6 +1336,20 @@ void lwm2m_update_server_lifetime(lwm2m_context_t * contextP, uint16_t serverId,
     if(serverP == NULL) return;
     if (serverP->lifetime != lifetime) lwm2m_update_registration(contextP, serverId, true, false);
     serverP->lifetime = lifetime;
+}
+
+void lwm2m_update_server_disable_timeout(lwm2m_context_t * contextP, uint16_t serverId, int disableTimeout) {
+    lwm2m_server_t *serverP = (lwm2m_server_t *)contextP->serverList;
+
+    if(serverId == 0) return;
+    
+    while(serverP && serverP->shortID != serverId)
+    {
+        serverP = serverP->next;
+    }
+
+    if(serverP == NULL) return;
+    serverP->disableTimeout = disableTimeout;
 }
 
 #endif
