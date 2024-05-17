@@ -233,6 +233,8 @@ bool lwm2m_session_is_equal(void * session1, void * session2, void * userData);
 #define LWM2M_SERVER_PREFERRED_TRANSPORT_ID  22
 #define LWM2M_SERVER_MUTE_SEND_ID            23
 
+#define LWM2M_SERVER_DEFAULT_TIMEOUT_SEC     86400
+
 /*
  * Resource IDs for the LWM2M Access Control
  */
@@ -595,6 +597,7 @@ struct _lwm2m_server_
     time_t                  registration; // date of the last registration in sec or end of client hold off time for bootstrap servers or end of hold off time for registration holds.
     lwm2m_binding_t         binding;      // client connection mode with this server
     bool                    muteSend;     // true if the server is in mute mode
+    int                     disableTimeout; // timeout in seconds for the server to disable
     void *                  sessionH;
     lwm2m_status_t          status;
     char *                  location;
@@ -861,6 +864,8 @@ void lwm2m_deregister(lwm2m_context_t * context);
 void lwm2m_resource_value_changed(lwm2m_context_t * contextP, lwm2m_uri_t * uriP);
 // Should be called when changes are made to the server life time.
 void lwm2m_update_server_lifetime(lwm2m_context_t * contextP, uint16_t serverId, time_t lifetime);
+// Should be called when changes are made to the server timeout.
+void lwm2m_update_server_disable_timeout(lwm2m_context_t * contextP, uint16_t serverId, int disableTimeout);
 
 #ifdef LWM2M_SUPPORT_SENML_JSON
 // The "Send" operation is used by the LwM2M Client to send data to the LwM2M Server without explicit request by that Server

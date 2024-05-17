@@ -513,7 +513,7 @@ bool transaction_set_payload(lwm2m_transaction_t *transaction, uint8_t *buffer, 
         coap_set_header_block1(transaction->message, 0, true, lwm2m_coap_block_size);
     }
 
-    coap_set_payload(transaction->message, buffer, MIN(length, lwm2m_coap_block_size));
+    coap_set_payload(transaction->message, transaction_payload, MIN(length, lwm2m_coap_block_size));
     return true;
 }
 

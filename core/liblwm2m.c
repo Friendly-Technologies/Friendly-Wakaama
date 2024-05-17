@@ -408,7 +408,8 @@ next_step:
     case STATE_BOOTSTRAP_REQUIRED:
 #ifdef LWM2M_BOOTSTRAP
         if (contextP->bootstrapServerList != NULL)
-        {
+        {   
+            prv_deleteServerList(contextP);
             bootstrap_start(contextP);
             contextP->state = STATE_BOOTSTRAPPING;
             bootstrap_step(contextP, tv_sec, timeoutP);

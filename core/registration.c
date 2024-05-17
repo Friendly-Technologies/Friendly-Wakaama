@@ -1133,6 +1133,7 @@ lwm2m_status_t registration_getStatus(lwm2m_context_t * contextP)
             case STATE_REG_FULL_UPDATE_NEEDED:
             case STATE_REG_UPDATE_PENDING:
             case STATE_DEREG_PENDING:
+            case STATE_DEREGISTERED:
                 if (reg_status == STATE_REG_FAILED)
                 {
                     reg_status = STATE_REGISTERED;
@@ -1145,7 +1146,6 @@ lwm2m_status_t registration_getStatus(lwm2m_context_t * contextP)
                 break;
 
             case STATE_REG_FAILED:
-            case STATE_DEREGISTERED:
             default:
                 break;
         }
@@ -1172,6 +1172,7 @@ static void prv_handleDeregistrationReply(lwm2m_context_t * contextP,
         if (targetP->status == STATE_DEREG_PENDING)
         {
             targetP->status = STATE_DEREGISTERED;
+            targetP->registration = lwm2m_gettime();
         }
     }
 }
@@ -2132,6 +2133,16 @@ void registration_step(lwm2m_context_t * contextP,
             prv_updateRegistration(contextP, targetP, true, true);
             break;
 
+        case STATE_DEREGISTERED: {
+            time_t registerTime = targetP->registration + targetP->disableTimeout;
+            if (registerTime <= currentTime)
+            {
+                prv_register(contextP, targetP);
+            } else if (registerTime - currentTime < *timeoutP) {
+                *timeoutP = registerTime - currentTime;
+            }
+            break;
+        }
         case STATE_REG_FAILED:
             if (targetP->sessionH != NULL)
             {
