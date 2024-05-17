@@ -250,6 +250,8 @@
 #define LINK_ITEM_START_SIZE        1
 #define LINK_ITEM_END               ">,"
 #define LINK_ITEM_END_SIZE          2
+#define LINK_ITEM_END_LAST          ">"
+#define LINK_ITEM_END_LAST_SIZE     1
 #define LINK_ITEM_DIM_START         ">;dim="
 #define LINK_ITEM_DIM_START_SIZE    6
 #define LINK_ITEM_ATTR_END          ","

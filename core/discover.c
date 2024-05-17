@@ -260,7 +260,7 @@ static int prv_serializeLinkData(lwm2m_context_t * contextP,
             if (res <= 0) return -1;
             head += res;
         } else {
-            PRV_CONCAT_STR(buffer, bufferLen, head, LINK_ITEM_END, LINK_ITEM_END_SIZE);
+            PRV_CONCAT_STR(buffer, bufferLen, head, LINK_ITEM_END_LAST, LINK_ITEM_END_LAST_SIZE);
         }
         PRV_CONCAT_STR(buffer, bufferLen, head, LINK_ITEM_ATTR_END, LINK_ITEM_ATTR_END_SIZE);
 
