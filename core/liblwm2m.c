@@ -483,10 +483,11 @@ next_step:
         break;
     }
 
-    observe_step(contextP, tv_sec, timeoutP);
+    if (contextP->state > STATE_BOOTSTRAPPING) observe_step(contextP, tv_sec, timeoutP);
 #endif
 
-    registration_step(contextP, tv_sec, timeoutP);
+    if (contextP->state > STATE_BOOTSTRAPPING) registration_step(contextP, tv_sec, timeoutP);
+    
     transaction_step(contextP, tv_sec, timeoutP);
 
     LOG_ARG("Final timeoutP: %d", (int) *timeoutP);

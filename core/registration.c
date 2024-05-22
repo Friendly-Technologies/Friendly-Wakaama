@@ -996,6 +996,8 @@ int lwm2m_update_registration(lwm2m_context_t * contextP,
     lwm2m_status_t newStatus;
     lwm2m_status_t requestedStatus = prv_get_registration_status(withLifetime, withObjects);
 
+    if (contextP->state <= STATE_BOOTSTRAPPING) return COAP_NO_ERROR;
+
     LOG_ARG("State: %s, shortServerID: %d, requested status: %s", STR_STATE(contextP->state), shortServerID, STR_STATUS(requestedStatus));
 
     result = COAP_NO_ERROR;
