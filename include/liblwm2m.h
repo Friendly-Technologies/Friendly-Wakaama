@@ -430,6 +430,7 @@ int lwm2m_data_decode_objlink(const lwm2m_data_t * dataP, uint16_t* objectId, ui
 void lwm2m_data_encode_corelink(const char * corelink, lwm2m_data_t * dataP);
 void lwm2m_data_encode_instances(lwm2m_data_t * subDataP, size_t count, lwm2m_data_t * dataP);
 void lwm2m_data_include(lwm2m_data_t * subDataP, size_t count, lwm2m_data_t * dataP);
+int lwm2m_data_decode_opaque(const lwm2m_data_t * dataP, uint8_t ** bufferP, size_t * lengthP);
 
 
 /*
