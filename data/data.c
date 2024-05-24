@@ -721,7 +721,7 @@ int lwm2m_data_decode_opaque(const lwm2m_data_t * dataP, uint8_t ** bufferP, siz
             break;
     }
     LOG_ARG("result: %d, buffer type: %d buffer len: %d", result, dataP->type, *lengthP);
-    return 1;
+    return result;
 }
 
 void lwm2m_data_include(lwm2m_data_t * subDataP,
