@@ -598,7 +598,7 @@ void observe_step(lwm2m_context_t * contextP,
             {
                 bool notify = false;
 
-                if (ac_is_operation_authorized(contextP, watcherP->server, &targetP->uri, LWM2M_OBJ_OP_READ) == false)
+                if (ac_is_enabled(contextP, watcherP->server) && !ac_is_operation_authorized(contextP, watcherP->server, &targetP->uri, LWM2M_OBJ_OP_READ))
                 {   
                     LOG_ARG("Observation not allowed, server: %d, uri: /%d/%d/%d/%d", watcherP->server->shortID, targetP->uri.objectId, targetP->uri.instanceId, targetP->uri.resourceId, targetP->uri.resourceInstanceId);
                     continue;
