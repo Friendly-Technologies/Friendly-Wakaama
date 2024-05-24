@@ -1,4 +1,7 @@
 #include "internals.h"
+
+#ifdef LWM2M_SUPPORT_SENML_CBOR
+
 #include <cbor.h>
 
 /**
@@ -1002,3 +1005,4 @@ int senml_cbor_serialize(lwm2m_uri_t * uriP, int size, const lwm2m_data_t * data
     return putEncodedIntoBuffer(bufferP, length, encoderBuffer);
 }
 
+#endif //LWM2M_SUPPORT_SENML_CBOR

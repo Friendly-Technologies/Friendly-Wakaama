@@ -1,4 +1,7 @@
 #include "internals.h"
+
+#ifdef LWM2M_SUPPORT_CBOR
+
 #include <cbor.h>
 
 int cbor_parse(lwm2m_uri_t * uriP,
@@ -376,3 +379,4 @@ int cbor_serialize(int size,
     return length;
 }
 
+#endif // LWM2M_SUPPORT_CBOR

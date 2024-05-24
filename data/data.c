@@ -885,6 +885,8 @@ int lwm2m_data_serialize(lwm2m_uri_t * uriP,
             *formatP = LWM2M_CONTENT_JSON;
 #elif defined(LWM2M_SUPPORT_TLV)
             *formatP = LWM2M_CONTENT_TLV;
+#elif defined(LWM2M_SUPPORT_SENML_CBOR)
+            *formatP = LWM2M_CONTENT_SENML_CBOR;
 #else
             return -1;
 #endif
