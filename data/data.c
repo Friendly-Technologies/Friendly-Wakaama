@@ -670,7 +670,7 @@ int lwm2m_data_decode_objlink(const lwm2m_data_t * dataP,
                            uint16_t* objectInstanceId)
 {
     int result = 0;
-
+    LOG("Entering");
     switch (dataP->type)
     {
         case LWM2M_TYPE_OBJECT_LINK:
@@ -690,6 +690,37 @@ int lwm2m_data_decode_objlink(const lwm2m_data_t * dataP,
             break;
     }
     LOG_ARG("result: %d, value: objectId: %d objectInstanceId: %d", result, objectId, objectInstanceId);
+    return result;
+}
+
+int lwm2m_data_decode_opaque(const lwm2m_data_t * dataP, uint8_t ** bufferP, size_t * lengthP) {
+    int result = 0;
+    LOG("Entering");
+    switch (dataP->type)
+    {
+        case LWM2M_TYPE_STRING:
+            *lengthP = utils_base64GetDecodedSize((const char *)dataP->value.asBuffer.buffer, dataP->value.asBuffer.length);
+            *bufferP = (uint8_t*) lwm2m_malloc(*lengthP);
+            if (*bufferP == NULL) break;
+            *lengthP = utils_base64Decode((const char *)dataP->value.asBuffer.buffer, dataP->value.asBuffer.length, *bufferP, *lengthP);
+            if (*lengthP == 0) {
+                lwm2m_free(*bufferP);
+                *bufferP = NULL;
+                break;
+            }
+            result = 1;
+            break;
+        case LWM2M_TYPE_OPAQUE:
+            *lengthP = dataP->value.asBuffer.length;
+            *bufferP = (uint8_t *)lwm2m_malloc(*lengthP);
+            if (*bufferP == NULL) break;
+            memcpy(*bufferP, dataP->value.asBuffer.buffer, *lengthP);
+            result = 1;
+            break;
+        default:
+            break;
+    }
+    LOG_ARG("result: %d, buffer type: %d buffer len: %d", result, dataP->type, *lengthP);
     return result;
 }
 
@@ -854,6 +885,8 @@ int lwm2m_data_serialize(lwm2m_uri_t * uriP,
             *formatP = LWM2M_CONTENT_JSON;
 #elif defined(LWM2M_SUPPORT_TLV)
             *formatP = LWM2M_CONTENT_TLV;
+#elif defined(LWM2M_SUPPORT_SENML_CBOR)
+            *formatP = LWM2M_CONTENT_SENML_CBOR;
 #else
             return -1;
 #endif

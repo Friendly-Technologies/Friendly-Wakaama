@@ -1,4 +1,7 @@
 #include "internals.h"
+
+#ifdef LWM2M_SUPPORT_SENML_CBOR
+
 #include <cbor.h>
 
 /**
@@ -952,60 +955,54 @@ int senml_cbor_serialize(lwm2m_uri_t * uriP, int size, const lwm2m_data_t * data
 {
     size_t length = 0;
     *bufferP = NULL;
-    size_t bufferSize = DEFAULT_BUFF_SIZE; /// TODO Add the ability to calculate the required memory for the cbor buffer
     uint8_t encoderBuffer[DEFAULT_BUFF_SIZE];
+    lwm2m_uri_t tmpUri = *uriP;
+    CborEncoder encoder;
+    CborError err;
+    size_t arraySize = 0;
 
     LOG_ARG("size: %d", size);
-    LOG_URI(uriP);
-        
-    if ( (size == 1) && (uriP->resourceId != 65535) && (dataP->type != LWM2M_TYPE_MULTIPLE_RESOURCE))
-    {
-        length = senml_cbor_encodeValue(dataP, encoderBuffer, &bufferSize);
+    LOG_URI(&tmpUri);
+    
+    if ( (size == 1) && LWM2M_URI_IS_SET_RESOURCE(&tmpUri) && (dataP->type != LWM2M_TYPE_MULTIPLE_RESOURCE)) {
+        tmpUri.resourceId = LWM2M_MAX_ID;
+    } else if (LWM2M_URI_IS_SET_RESOURCE_INSTANCE(&tmpUri)) {
+        tmpUri.resourceInstanceId = LWM2M_MAX_ID;
     }
-    else if (uriP != NULL && LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP)){
+
+    if ((size == 1) && (dataP->type == LWM2M_TYPE_MULTIPLE_RESOURCE)) {
         size = dataP->value.asChildren.count;
-        if(size != 1) return -1;
         dataP = dataP->value.asChildren.array;
-        length = senml_cbor_encodeValue(dataP, encoderBuffer, &bufferSize);
+        if(size == 0) return -1;
     }
-    else 
+
+    arraySize = get_array_items_count(dataP, size); /// Counting data for the future SENML-CBOR array
+
+    cbor_encoder_init(&encoder, encoderBuffer, DEFAULT_BUFF_SIZE, 0);
+
+    err = cbor_encoder_create_array(&encoder, &encoder, arraySize);/// Opening array once
+    if (err != CborNoError) 
     {
-        CborEncoder encoder;
-        CborError err;
-        size_t arraySize = 0;
-        if((size == 1) && (dataP->type == LWM2M_TYPE_MULTIPLE_RESOURCE)){
-            size = dataP->value.asChildren.count;
-            dataP = dataP->value.asChildren.array;
-            if(size == 0) return -1;
-        }
+        LOG_ARG("cbor_encoder_create_array FAILED err=%d", err);
+        return -1;
+    }
 
-        arraySize = get_array_items_count(dataP, size); /// Counting data for the future SENML-CBOR array
+    err = prv_serialize(&encoder, &tmpUri, dataP, size); /// Recoursive call
+    if (err != CborNoError) 
+    {
+        LOG_ARG("cbor_encoder_create_array FAILED err=%d", err);
+        return -1;
+    }
 
-        cbor_encoder_init(&encoder, encoderBuffer, DEFAULT_BUFF_SIZE, 0);
-
-        err = cbor_encoder_create_array(&encoder, &encoder, arraySize);/// Opening array once
-        if (err != CborNoError) 
-        {
-            LOG_ARG("cbor_encoder_create_array FAILED err=%d", err);
-            return -1;
-        }
-
-            err = prv_serialize(&encoder, uriP, dataP, size); /// Recoursive call
-            if (err != CborNoError) 
-            {
-                LOG_ARG("cbor_encoder_create_array FAILED err=%d", err);
-                return -1;
-            }
-
-        err = cbor_encoder_close_container(&encoder, &encoder); /// Closing array once
-        if (err != CborNoError) 
-        {
-            LOG_ARG("cbor_encoder_close_container FAILED err=%d", err);
-            return -1;
-        }
-        length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);/// Getting the final length of the encoded buffer
-    }///!else
+    err = cbor_encoder_close_container(&encoder, &encoder); /// Closing array once
+    if (err != CborNoError) 
+    {
+        LOG_ARG("cbor_encoder_close_container FAILED err=%d", err);
+        return -1;
+    }
+    length = cbor_encoder_get_buffer_size(&encoder, encoderBuffer);/// Getting the final length of the encoded buffer
 
     return putEncodedIntoBuffer(bufferP, length, encoderBuffer);
 }
 
+#endif //LWM2M_SUPPORT_SENML_CBOR
