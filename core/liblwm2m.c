@@ -486,7 +486,11 @@ next_step:
     if (contextP->state > STATE_BOOTSTRAPPING) observe_step(contextP, tv_sec, timeoutP);
 #endif
 
+#ifdef LWM2M_CLIENT_MODE
     if (contextP->state > STATE_BOOTSTRAPPING) registration_step(contextP, tv_sec, timeoutP);
+#else
+    registration_step(contextP, tv_sec, timeoutP);
+#endif
     
     transaction_step(contextP, tv_sec, timeoutP);
 
