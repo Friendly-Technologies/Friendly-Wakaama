@@ -211,6 +211,9 @@ void lwm2m_close(lwm2m_context_t * contextP)
 #endif
 
     prv_deleteTransactionList(contextP);
+    #ifdef LWM2M_CLIENT_MODE
+    lwm2m_ac_clear_policy(contextP);
+    #endif
     lwm2m_free(contextP);
 }
 
@@ -346,7 +349,7 @@ int lwm2m_add_object(lwm2m_context_t * contextP,
 
     if (contextP->state == STATE_READY)
     {
-        return lwm2m_update_registration(contextP, 0, true);
+        return lwm2m_update_registration(contextP, 0, false, true);
     }
 
     return COAP_NO_ERROR;
@@ -364,7 +367,7 @@ int lwm2m_remove_object(lwm2m_context_t * contextP,
 
     if (contextP->state == STATE_READY)
     {
-        return lwm2m_update_registration(contextP, 0, true);
+        return lwm2m_update_registration(contextP, 0, false, true);
     }
 
     return 0;
@@ -405,7 +408,8 @@ next_step:
     case STATE_BOOTSTRAP_REQUIRED:
 #ifdef LWM2M_BOOTSTRAP
         if (contextP->bootstrapServerList != NULL)
-        {
+        {   
+            prv_deleteServerList(contextP);
             bootstrap_start(contextP);
             contextP->state = STATE_BOOTSTRAPPING;
             bootstrap_step(contextP, tv_sec, timeoutP);
@@ -479,10 +483,15 @@ next_step:
         break;
     }
 
-    observe_step(contextP, tv_sec, timeoutP);
+    if (contextP->state > STATE_BOOTSTRAPPING) observe_step(contextP, tv_sec, timeoutP);
 #endif
 
+#ifdef LWM2M_CLIENT_MODE
+    if (contextP->state > STATE_BOOTSTRAPPING) registration_step(contextP, tv_sec, timeoutP);
+#else
     registration_step(contextP, tv_sec, timeoutP);
+#endif
+    
     transaction_step(contextP, tv_sec, timeoutP);
 
     LOG_ARG("Final timeoutP: %d", (int) *timeoutP);

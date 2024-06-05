@@ -267,7 +267,7 @@ static uint8_t prv_readUint(lwm2m_context_t *contextP,
         return COAP_500_INTERNAL_SERVER_ERROR;
     }
     dataP[0].id = resourceId;
-    result = objP->readFunc(contextP, instanceId, &size, &dataP, objP);
+    result = objP->readFunc(contextP, NULL, instanceId, &size, &dataP, objP);
     if (result == COAP_205_CONTENT)
     {
         if (lwm2m_data_decode_uint(dataP, valueP))
@@ -297,7 +297,7 @@ static uint8_t prv_readBoolean(lwm2m_context_t *contextP,
         return COAP_500_INTERNAL_SERVER_ERROR;
     }
     dataP[0].id = resourceId;
-    result = objP->readFunc(contextP, instanceId, &size, &dataP, objP);
+    result = objP->readFunc(contextP, NULL, instanceId, &size, &dataP, objP);
     if (result == COAP_205_CONTENT)
     {
         if (lwm2m_data_decode_bool(dataP, valueP))
@@ -866,6 +866,7 @@ static void prv_handleRegistrationUpdateReply(lwm2m_context_t * contextP,
 
 static int prv_updateRegistration(lwm2m_context_t * contextP,
                                   lwm2m_server_t * server,
+                                  bool withLifetime,
                                   bool withObjects)
 {
     lwm2m_transaction_t * transaction;
@@ -876,6 +877,19 @@ static int prv_updateRegistration(lwm2m_context_t * contextP,
     if (transaction == NULL) return COAP_500_INTERNAL_SERVER_ERROR;
 
     coap_set_header_uri_path(transaction->message, server->location);
+
+    if (withLifetime == true)
+    {   
+        char buffer[QUERY_LIFETIME_LEN + 21];
+        int res;
+
+        res = utils_stringCopy(buffer , sizeof(buffer), QUERY_STARTER QUERY_LIFETIME);
+        if (res < 0) return COAP_500_INTERNAL_SERVER_ERROR;
+        res = utils_intToText(server->lifetime, (uint8_t *)buffer + res, sizeof(buffer) - res);
+        if (res == 0) return COAP_500_INTERNAL_SERVER_ERROR;
+
+        coap_set_header_uri_query(transaction->message, buffer);
+    }
 
     if (withObjects == true)
     {
@@ -930,15 +944,61 @@ static int prv_updateRegistration(lwm2m_context_t * contextP,
     return COAP_NO_ERROR;
 }
 
+static lwm2m_status_t prv_get_registration_status(bool withLifetime, bool withObjects)
+{
+   return (withLifetime && withObjects) ? STATE_REG_FULL_UPDATE_NEEDED :
+          (withLifetime) ? STATE_REG_LT_UPDATE_NEEDED :
+          (withObjects) ? STATE_REG_OBJ_UPDATE_NEEDED :
+          STATE_REG_UPDATE_NEEDED;
+}
+
+static int prv_compute_registration_status(lwm2m_status_t serverStatus, lwm2m_status_t requestedStatus, lwm2m_status_t *computedStatus)
+{
+    if (serverStatus == requestedStatus ||
+        serverStatus == STATE_REGISTERED ||
+        serverStatus == STATE_REG_UPDATE_PENDING)
+    {
+        *computedStatus = requestedStatus;
+    } 
+    else if (serverStatus == STATE_REG_FULL_UPDATE_NEEDED || requestedStatus == STATE_REG_FULL_UPDATE_NEEDED)
+    {
+        *computedStatus = STATE_REG_FULL_UPDATE_NEEDED;
+    }
+    else if ((serverStatus == STATE_REG_LT_UPDATE_NEEDED)
+            || (serverStatus == STATE_REG_OBJ_UPDATE_NEEDED)
+            || (serverStatus == STATE_REG_UPDATE_NEEDED))
+    {
+        if (serverStatus != STATE_REG_UPDATE_NEEDED && requestedStatus != STATE_REG_UPDATE_NEEDED)
+        {
+            *computedStatus = STATE_REG_FULL_UPDATE_NEEDED;
+        }
+        else if (serverStatus == STATE_REG_UPDATE_NEEDED)
+        {
+            *computedStatus = requestedStatus;
+        }
+    }
+    else
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
 // update the registration of a given server
 int lwm2m_update_registration(lwm2m_context_t * contextP,
                               uint16_t shortServerID,
+                              bool withLifetime,
                               bool withObjects)
 {
     lwm2m_server_t * targetP;
     uint8_t result;
+    lwm2m_status_t newStatus;
+    lwm2m_status_t requestedStatus = prv_get_registration_status(withLifetime, withObjects);
 
-    LOG_ARG("State: %s, shortServerID: %d", STR_STATE(contextP->state), shortServerID);
+    if (contextP->state <= STATE_BOOTSTRAPPING) return COAP_NO_ERROR;
+
+    LOG_ARG("State: %s, shortServerID: %d, requested status: %s", STR_STATE(contextP->state), shortServerID, STR_STATUS(requestedStatus));
 
     result = COAP_NO_ERROR;
 
@@ -957,50 +1017,17 @@ int lwm2m_update_registration(lwm2m_context_t * contextP,
         {
             if (targetP->shortID == shortServerID)
             {
-                // found the server, trigger the update transaction
-                if (targetP->status == STATE_REGISTERED
-                 || targetP->status == STATE_REG_UPDATE_PENDING)
-                {
-                    if (withObjects == true)
-                    {
-                        targetP->status = STATE_REG_FULL_UPDATE_NEEDED;
-                    }
-                    else
-                    {
-                        targetP->status = STATE_REG_UPDATE_NEEDED;
-                    }
-                    return COAP_NO_ERROR;
-                }
-                else if ((targetP->status == STATE_REG_FULL_UPDATE_NEEDED)
-                      || (targetP->status == STATE_REG_UPDATE_NEEDED))
-                {
-                    // if REG (FULL) UPDATE is already set, returns COAP_NO_ERROR
-                    if (withObjects == true)
-                    {
-                        targetP->status = STATE_REG_FULL_UPDATE_NEEDED;
-                    }
-                    return COAP_NO_ERROR;
-                }
-                else
-                {
-                    return COAP_400_BAD_REQUEST;
-                }
+                int res = prv_compute_registration_status(targetP->status, requestedStatus, &newStatus);
+                if (res == -1) return COAP_400_BAD_REQUEST;
+                targetP->status = newStatus;
+                
+                return COAP_NO_ERROR;
             }
         }
         else
         {
-            if (targetP->status == STATE_REGISTERED
-             || targetP->status == STATE_REG_UPDATE_PENDING)
-            {
-                if (withObjects == true)
-                {
-                    targetP->status = STATE_REG_FULL_UPDATE_NEEDED;
-                }
-                else
-                {
-                    targetP->status = STATE_REG_UPDATE_NEEDED;
-                }
-            }
+            int res = prv_compute_registration_status(targetP->status, requestedStatus, &newStatus);
+            if (res == 0) targetP->status = newStatus;
         }
         targetP = targetP->next;
     }
@@ -1103,9 +1130,12 @@ lwm2m_status_t registration_getStatus(lwm2m_context_t * contextP)
         {
             case STATE_REGISTERED:
             case STATE_REG_UPDATE_NEEDED:
+            case STATE_REG_LT_UPDATE_NEEDED:
+            case STATE_REG_OBJ_UPDATE_NEEDED:
             case STATE_REG_FULL_UPDATE_NEEDED:
             case STATE_REG_UPDATE_PENDING:
             case STATE_DEREG_PENDING:
+            case STATE_DEREGISTERED:
                 if (reg_status == STATE_REG_FAILED)
                 {
                     reg_status = STATE_REGISTERED;
@@ -1118,7 +1148,6 @@ lwm2m_status_t registration_getStatus(lwm2m_context_t * contextP)
                 break;
 
             case STATE_REG_FAILED:
-            case STATE_DEREGISTERED:
             default:
                 break;
         }
@@ -1145,6 +1174,7 @@ static void prv_handleDeregistrationReply(lwm2m_context_t * contextP,
         if (targetP->status == STATE_DEREG_PENDING)
         {
             targetP->status = STATE_DEREGISTERED;
+            targetP->registration = lwm2m_gettime();
         }
     }
 }
@@ -2074,24 +2104,13 @@ void registration_step(lwm2m_context_t * contextP,
 #endif
         case STATE_REGISTERED:
         {
-            time_t nextUpdate;
             time_t interval;
 
-            nextUpdate = targetP->lifetime;
-            if (COAP_MAX_TRANSMIT_WAIT < nextUpdate)
-            {
-                nextUpdate -= COAP_MAX_TRANSMIT_WAIT;
-            }
-            else
-            {
-                nextUpdate = nextUpdate >> 1;
-            }
-
-            interval = targetP->registration + nextUpdate - currentTime;
+            interval = targetP->registration + LWM2M_COMPUTE_LIFETIME(targetP->lifetime) - currentTime;
             if (0 >= interval)
             {
                 LOG_ARG("%d Updating registration", targetP->shortID);
-                prv_updateRegistration(contextP, targetP, false);
+                prv_updateRegistration(contextP, targetP, false, false);
             }
             else if (interval < *timeoutP)
             {
@@ -2101,13 +2120,31 @@ void registration_step(lwm2m_context_t * contextP,
         break;
 
         case STATE_REG_UPDATE_NEEDED:
-            prv_updateRegistration(contextP, targetP, false);
+            prv_updateRegistration(contextP, targetP, false, false);
+            break;
+
+        case STATE_REG_LT_UPDATE_NEEDED:
+            prv_updateRegistration(contextP, targetP, true, false);
+            break;
+
+        case STATE_REG_OBJ_UPDATE_NEEDED:
+            prv_updateRegistration(contextP, targetP, false, true);
             break;
 
         case STATE_REG_FULL_UPDATE_NEEDED:
-            prv_updateRegistration(contextP, targetP, true);
+            prv_updateRegistration(contextP, targetP, true, true);
             break;
 
+        case STATE_DEREGISTERED: {
+            time_t registerTime = targetP->registration + targetP->disableTimeout;
+            if (registerTime <= currentTime)
+            {
+                prv_register(contextP, targetP);
+            } else if (registerTime - currentTime < *timeoutP) {
+                *timeoutP = registerTime - currentTime;
+            }
+            break;
+        }
         case STATE_REG_FAILED:
             if (targetP->sessionH != NULL)
             {

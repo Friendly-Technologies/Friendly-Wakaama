@@ -180,7 +180,7 @@ bool lwm2m_session_is_equal(void * session1, void * session2, void * userData);
  */
 #define LWM2M_SECURITY_OBJECT_ID            0
 #define LWM2M_SERVER_OBJECT_ID              1
-#define LWM2M_ACL_OBJECT_ID                 2
+#define LWM2M_AC_OBJECT_ID                  2
 #define LWM2M_DEVICE_OBJECT_ID              3
 #define LWM2M_CONN_MONITOR_OBJECT_ID        4
 #define LWM2M_FIRMWARE_UPDATE_OBJECT_ID     5
@@ -232,6 +232,27 @@ bool lwm2m_session_is_equal(void * session1, void * session2, void * userData);
 #define LWM2M_SERVER_TRIGGER_ID              21
 #define LWM2M_SERVER_PREFERRED_TRANSPORT_ID  22
 #define LWM2M_SERVER_MUTE_SEND_ID            23
+
+#define LWM2M_SERVER_DEFAULT_TIMEOUT_SEC     86400
+
+/*
+ * Resource IDs for the LWM2M Access Control
+ */
+#define LWM2M_AC_RES_OBJECT_ID               0
+#define LWM2M_AC_RES_INSTANCE_ID             1
+#define LWM2M_AC_RES_ACL_ID                  2
+#define LWM2M_AC_RES_OWNER_ID                3
+
+#define LWM2M_AC_ACL_DEFAULT_ID              0
+#define LWM2M_AC_ACL_MAX_VALUE               32
+#define LWM2M_AC_RES_CNT                     4
+#define LWM2M_AC_NO_ACCESS                   0
+#define LWM2M_AC_READ_OP                     (1 << 0)
+#define LWM2M_AC_WRITE_OP                    (1 << 1)
+#define LWM2M_AC_EXECUTE_OP                  (1 << 2)
+#define LWM2M_AC_DELETE_OP                   (1 << 3)
+#define LWM2M_AC_CREATE_OP                   (1 << 4)
+
 
 #define LWM2M_SECURITY_MODE_PRE_SHARED_KEY  0
 #define LWM2M_SECURITY_MODE_RAW_PUBLIC_KEY  1
@@ -336,6 +357,7 @@ typedef enum
     LWM2M_TYPE_UNSIGNED_INTEGER,
     LWM2M_TYPE_FLOAT,
     LWM2M_TYPE_BOOLEAN,
+    LWM2M_TYPE_TIME,
 
     LWM2M_TYPE_OBJECT_LINK,
     LWM2M_TYPE_CORE_LINK
@@ -378,6 +400,8 @@ typedef enum
     LWM2M_CONTENT_OPAQUE     = 42,
     LWM2M_CONTENT_TLV_OLD    = 1542,     // Keep old value for backward-compatibility
     LWM2M_CONTENT_TLV        = 11542,
+    LWM2M_CONTENT_CBOR       = 60,
+    LWM2M_CONTENT_SENML_CBOR = 112,
     LWM2M_CONTENT_JSON_OLD   = 1543,     // Keep old value for backward-compatibility
     LWM2M_CONTENT_JSON       = 11543,
     LWM2M_CONTENT_SENML_JSON = 110
@@ -399,10 +423,14 @@ void lwm2m_data_encode_float(double value, lwm2m_data_t * dataP);
 int lwm2m_data_decode_float(const lwm2m_data_t * dataP, double * valueP);
 void lwm2m_data_encode_bool(bool value, lwm2m_data_t * dataP);
 int lwm2m_data_decode_bool(const lwm2m_data_t * dataP, bool * valueP);
+int lwm2m_data_decode_time(const lwm2m_data_t * dataP, int64_t * valueP);
+void lwm2m_data_encode_time(uint64_t value, lwm2m_data_t * dataP);
 void lwm2m_data_encode_objlink(uint16_t objectId, uint16_t objectInstanceId, lwm2m_data_t * dataP);
+int lwm2m_data_decode_objlink(const lwm2m_data_t * dataP, uint16_t* objectId, uint16_t* objectInstanceId);
 void lwm2m_data_encode_corelink(const char * corelink, lwm2m_data_t * dataP);
 void lwm2m_data_encode_instances(lwm2m_data_t * subDataP, size_t count, lwm2m_data_t * dataP);
 void lwm2m_data_include(lwm2m_data_t * subDataP, size_t count, lwm2m_data_t * dataP);
+int lwm2m_data_decode_opaque(const lwm2m_data_t * dataP, uint8_t ** bufferP, size_t * lengthP);
 
 
 /*
@@ -435,6 +463,7 @@ int lwm2m_decode_TLV(const uint8_t * buffer, size_t buffer_len, lwm2m_data_type_
  */
 
 typedef struct _lwm2m_object_t lwm2m_object_t;
+typedef struct _lwm2m_server_ lwm2m_server_t;
 
 typedef enum
 {
@@ -443,17 +472,17 @@ typedef enum
     LWM2M_WRITE_REPLACE_INSTANCE,   // Write should replace the entire instance.
 } lwm2m_write_type_t;
 
-typedef uint8_t (*lwm2m_read_callback_t) (lwm2m_context_t * contextP, uint16_t instanceId, int * numDataP, lwm2m_data_t ** dataArrayP, lwm2m_object_t * objectP);
-typedef uint8_t (*lwm2m_discover_callback_t) (lwm2m_context_t * contextP, uint16_t instanceId, int * numDataP, lwm2m_data_t ** dataArrayP, lwm2m_object_t * objectP);
-typedef uint8_t (*lwm2m_write_callback_t) (lwm2m_context_t * contextP, uint16_t instanceId, int numData, lwm2m_data_t * dataArray, lwm2m_object_t * objectP, lwm2m_write_type_t writeType);
-typedef uint8_t (*lwm2m_execute_callback_t) (lwm2m_context_t * contextP, uint16_t instanceId, uint16_t resourceId, uint8_t * buffer, int length, lwm2m_object_t * objectP);
-typedef uint8_t (*lwm2m_create_callback_t) (lwm2m_context_t * contextP, uint16_t instanceId, int numData, lwm2m_data_t * dataArray, lwm2m_object_t * objectP);
+typedef uint8_t (*lwm2m_read_callback_t) (lwm2m_context_t * contextP, lwm2m_server_t *serverP, uint16_t instanceId, int * numDataP, lwm2m_data_t ** dataArrayP, lwm2m_object_t * objectP);
+typedef uint8_t (*lwm2m_discover_callback_t) (lwm2m_context_t * contextP, lwm2m_server_t *serverP, uint16_t instanceId, int * numDataP, lwm2m_data_t ** dataArrayP, lwm2m_object_t * objectP);
+typedef uint8_t (*lwm2m_write_callback_t) (lwm2m_context_t * contextP, lwm2m_server_t *serverP, uint16_t instanceId, int numData, lwm2m_data_t * dataArray, lwm2m_object_t * objectP, lwm2m_write_type_t writeType);
+typedef uint8_t (*lwm2m_execute_callback_t) (lwm2m_context_t * contextP, lwm2m_server_t *serverP, uint16_t instanceId, uint16_t resourceId, uint8_t * buffer, int length, lwm2m_object_t * objectP);
+typedef uint8_t (*lwm2m_create_callback_t) (lwm2m_context_t * contextP, lwm2m_server_t *serverP, uint16_t instanceId, int numData, lwm2m_data_t * dataArray, lwm2m_object_t * objectP);
 #ifdef LWM2M_RAW_BLOCK1_REQUESTS
-typedef uint8_t (*lwm2m_raw_block1_create_callback_t) (lwm2m_context_t * contextP, lwm2m_uri_t * uriP, lwm2m_media_type_t format, uint8_t * buffer, int length, lwm2m_object_t * objectP, uint32_t block_num, uint8_t block_more);
-typedef uint8_t (*lwm2m_raw_block1_write_callback_t) (lwm2m_context_t * contextP, lwm2m_uri_t * uriP, lwm2m_media_type_t format, uint8_t * buffer, int length, lwm2m_object_t * objectP, uint32_t block_num, uint8_t block_more);
-typedef uint8_t (*lwm2m_raw_block1_execute_callback_t) (lwm2m_context_t * contextP, lwm2m_uri_t * uriP, uint8_t * buffer, int length, lwm2m_object_t * objectP, uint32_t block_num, uint8_t block_more);
+typedef uint8_t (*lwm2m_raw_block1_create_callback_t) (lwm2m_context_t * contextP, lwm2m_server_t *serverP, lwm2m_uri_t * uriP, lwm2m_media_type_t format, uint8_t * buffer, int length, lwm2m_object_t * objectP, uint32_t block_num, uint8_t block_more);
+typedef uint8_t (*lwm2m_raw_block1_write_callback_t) (lwm2m_context_t * contextP, lwm2m_server_t *serverP, lwm2m_uri_t * uriP, lwm2m_media_type_t format, uint8_t * buffer, int length, lwm2m_object_t * objectP, uint32_t block_num, uint8_t block_more);
+typedef uint8_t (*lwm2m_raw_block1_execute_callback_t) (lwm2m_context_t * contextP, lwm2m_server_t *serverP, lwm2m_uri_t * uriP, uint8_t * buffer, int length, lwm2m_object_t * objectP, uint32_t block_num, uint8_t block_more);
 #endif
-typedef uint8_t (*lwm2m_delete_callback_t) (lwm2m_context_t * contextP, uint16_t instanceId, lwm2m_object_t * objectP);
+typedef uint8_t (*lwm2m_delete_callback_t) (lwm2m_context_t * contextP, lwm2m_server_t *serverP, uint16_t instanceId, lwm2m_object_t * objectP);
 
 struct _lwm2m_object_t
 {
@@ -492,7 +521,9 @@ typedef enum
     STATE_REG_FAILED,              // last registration failed
     STATE_REG_UPDATE_PENDING,      // registration update pending
     STATE_REG_UPDATE_NEEDED,       // registration update required
-    STATE_REG_FULL_UPDATE_NEEDED,  // registration update with objects required
+    STATE_REG_LT_UPDATE_NEEDED,    // registration update with lifetime extension required
+    STATE_REG_OBJ_UPDATE_NEEDED,   // registration update with objects required
+    STATE_REG_FULL_UPDATE_NEEDED,  // registration update with objects and lifetime extension required
     STATE_DEREG_PENDING,           // deregistration pending
     STATE_BS_HOLD_OFF,             // bootstrap hold off time
     STATE_BS_INITIATED,            // bootstrap request sent
@@ -558,7 +589,7 @@ struct _lwm2m_block_data_
 };
 
 
-typedef struct _lwm2m_server_
+struct _lwm2m_server_
 {
     struct _lwm2m_server_ * next;         // matches lwm2m_list_t::next
     uint16_t                secObjInstID; // matches lwm2m_list_t::id
@@ -566,6 +597,8 @@ typedef struct _lwm2m_server_
     time_t                  lifetime;     // lifetime of the registration in sec or 0 if default value (86400 sec), also used as hold off time for bootstrap servers
     time_t                  registration; // date of the last registration in sec or end of client hold off time for bootstrap servers or end of hold off time for registration holds.
     lwm2m_binding_t         binding;      // client connection mode with this server
+    bool                    muteSend;     // true if the server is in mute mode
+    int                     disableTimeout; // timeout in seconds for the server to disable
     void *                  sessionH;
     lwm2m_status_t          status;
     char *                  location;
@@ -576,7 +609,7 @@ typedef struct _lwm2m_server_
     uint8_t                 attempt;      // Current registration attempt
     uint8_t                 sequence;     // Current registration sequence
 #endif
-} lwm2m_server_t;
+};
 
 typedef struct _block_info_t
 {
@@ -624,9 +657,11 @@ typedef struct _lwm2m_observation_
 
 #define LWM2M_ATTR_FLAG_MIN_PERIOD      (uint8_t)0x01
 #define LWM2M_ATTR_FLAG_MAX_PERIOD      (uint8_t)0x02
-#define LWM2M_ATTR_FLAG_GREATER_THAN    (uint8_t)0x04
-#define LWM2M_ATTR_FLAG_LESS_THAN       (uint8_t)0x08
-#define LWM2M_ATTR_FLAG_STEP            (uint8_t)0x10
+#define LWM2M_ATTR_FLAG_EMIN_PERIOD     (uint8_t)0x04
+#define LWM2M_ATTR_FLAG_EMAX_PERIOD     (uint8_t)0x08
+#define LWM2M_ATTR_FLAG_GREATER_THAN    (uint8_t)0x10
+#define LWM2M_ATTR_FLAG_LESS_THAN       (uint8_t)0x20
+#define LWM2M_ATTR_FLAG_STEP            (uint8_t)0x40
 
 typedef struct
 {
@@ -634,6 +669,8 @@ typedef struct
     uint8_t     toClear;
     uint32_t    minPeriod;
     uint32_t    maxPeriod;
+    uint32_t    eminPeriod;
+    uint32_t    emaxPeriod;
     double      greaterThan;
     double      lessThan;
     double      step;
@@ -807,6 +844,8 @@ void lwm2m_close(lwm2m_context_t * contextP);
 int lwm2m_step(lwm2m_context_t * contextP, time_t * timeoutP);
 // dispatch received data to liblwm2m
 void lwm2m_handle_packet(lwm2m_context_t *contextP, uint8_t *buffer, size_t length, void *fromSessionH);
+// perform any required observe operations
+void lwm2m_observe_step(lwm2m_context_t * contextP);
 
 #ifdef LWM2M_CLIENT_MODE
 // configure the client side with the Endpoint Name, binding, MSISDN (can be nil), alternative path
@@ -820,11 +859,32 @@ int lwm2m_remove_object(lwm2m_context_t * contextP, uint16_t id);
 // send a registration update to the server specified by the server short identifier
 // or all if the ID is 0.
 // If withObjects is true, the registration update contains the object list.
-int lwm2m_update_registration(lwm2m_context_t * contextP, uint16_t shortServerID, bool withObjects);
+int lwm2m_update_registration(lwm2m_context_t * contextP, uint16_t shortServerID, bool withLifetime, bool withObjects);
 // send deregistration to all servers connected to client
 void lwm2m_deregister(lwm2m_context_t * context);
 void lwm2m_resource_value_changed(lwm2m_context_t * contextP, lwm2m_uri_t * uriP);
-#endif
+// Should be called when changes are made to the server life time.
+void lwm2m_update_server_lifetime(lwm2m_context_t * contextP, uint16_t serverId, time_t lifetime);
+// Should be called when changes are made to the server timeout.
+void lwm2m_update_server_disable_timeout(lwm2m_context_t * contextP, uint16_t serverId, int disableTimeout);
+
+#ifdef LWM2M_SUPPORT_SENML_JSON
+// The "Send" operation is used by the LwM2M Client to send data to the LwM2M Server without explicit request by that Server
+int lwm2m_send_operation(lwm2m_context_t * contextP, lwm2m_uri_t * uriP);
+void lwm2m_update_server_mute(lwm2m_context_t * contextP, uint16_t serverId, bool muteSend);
+#endif // LWM2M_SUPPORT_SENML_JSON
+
+// AC object functionality
+// Request an update of AC policy from the client storage of data,
+// should be called when the client or server have updated the AC policy.
+// If immediately is true, the update is done immediately, otherwise it is
+// done at the next operation that requirs AC check.
+void lwm2m_ac_request_update_policy(lwm2m_context_t * contextP, bool immediately);
+// Clear the AC policy, should be called when the client is cleared.
+// Policy will be restored from the client storage at the next operation,
+// that requires AC check.
+void lwm2m_ac_clear_policy(lwm2m_context_t * contextP);
+#endif // LWM2M_CLIENT_MODE
 
 #ifdef LWM2M_SERVER_MODE
 // Clients registration/deregistration monitoring API.

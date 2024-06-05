@@ -168,7 +168,7 @@ void handle_value_changed(lwm2m_context_t * lwm2mH,
                 lwm2m_data_encode_nstring(value, valueLength, dataP);
             }
 
-            result = object->writeFunc(lwm2mH, uri->instanceId, 1, dataP, object, LWM2M_WRITE_PARTIAL_UPDATE);
+            result = object->writeFunc(lwm2mH, NULL, uri->instanceId, 1, dataP, object, LWM2M_WRITE_PARTIAL_UPDATE);
             if (COAP_405_METHOD_NOT_ALLOWED == result)
             {
                 switch (uri->objectId)
@@ -487,7 +487,7 @@ static void prv_instance_dump(lwm2m_context_t * lwm2mH,
     uint16_t res;
 
     numData = 0;
-    res = objectP->readFunc(lwm2mH, id, &numData, &dataArray, objectP);
+    res = objectP->readFunc(lwm2mH, NULL, id, &numData, &dataArray, objectP);
     if (res != COAP_205_CONTENT)
     {
         printf("Error ");
@@ -558,7 +558,7 @@ static void prv_update(lwm2m_context_t * lwm2mH,
     if (buffer[0] == 0) goto syntax_error;
 
     uint16_t serverId = (uint16_t) atoi(buffer);
-    int res = lwm2m_update_registration(lwm2mH, serverId, false);
+    int res = lwm2m_update_registration(lwm2mH, serverId, false, false);
     if (res != 0)
     {
         fprintf(stdout, "Registration update error: ");
@@ -813,7 +813,7 @@ static void prv_display_objects(lwm2m_context_t *lwm2mH, char *buffer, void *use
             case LWM2M_SERVER_OBJECT_ID:
                 display_server_object(object);
                 break;
-            case LWM2M_ACL_OBJECT_ID:
+            case LWM2M_AC_OBJECT_ID:
                 break;
             case LWM2M_DEVICE_OBJECT_ID:
                 display_device_object(object);

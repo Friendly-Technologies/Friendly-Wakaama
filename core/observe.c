@@ -208,6 +208,7 @@ uint8_t observe_handleRequest(lwm2m_context_t * contextP,
             switch (valueP->type)
             {
             case LWM2M_TYPE_INTEGER:
+            case LWM2M_TYPE_TIME:
                 if (1 != lwm2m_data_decode_int(valueP, &(watcherP->lastValue.asInteger))) return COAP_500_INTERNAL_SERVER_ERROR;
                 break;
             case LWM2M_TYPE_UNSIGNED_INTEGER:
@@ -344,6 +345,7 @@ uint8_t observe_setParameters(lwm2m_context_t * contextP,
             attrP->toSet, attrP->toClear, attrP->minPeriod, attrP->maxPeriod, attrP->greaterThan, attrP->lessThan, attrP->step);
 
     if (!LWM2M_URI_IS_SET_INSTANCE(uriP) && LWM2M_URI_IS_SET_RESOURCE(uriP)) return COAP_400_BAD_REQUEST;
+    if (ac_is_enabled(contextP, serverP) && !ac_is_operation_authorized(contextP, serverP, uriP, LWM2M_OBJ_OP_WRITE_ATTRIBUTES)) return COAP_401_UNAUTHORIZED;
 
     result = object_checkReadable(contextP, uriP, attrP);
     if (COAP_205_CONTENT != result) return result;
@@ -409,6 +411,14 @@ uint8_t observe_setParameters(lwm2m_context_t * contextP,
         if (attrP->toSet & LWM2M_ATTR_FLAG_MAX_PERIOD)
         {
             watcherP->parameters->maxPeriod = attrP->maxPeriod;
+        }
+        if (attrP->toSet & LWM2M_ATTR_FLAG_EMIN_PERIOD)
+        {
+            watcherP->parameters->eminPeriod = attrP->eminPeriod;
+        }
+        if (attrP->toSet & LWM2M_ATTR_FLAG_EMAX_PERIOD)
+        {
+            watcherP->parameters->emaxPeriod = attrP->emaxPeriod;
         }
         if (attrP->toSet & LWM2M_ATTR_FLAG_GREATER_THAN)
         {
@@ -540,8 +550,7 @@ void observe_step(lwm2m_context_t * contextP,
         if (LWM2M_URI_IS_SET_RESOURCE(&targetP->uri))
         {
             lwm2m_data_t *valueP;
-
-            if (COAP_205_CONTENT != object_readData(contextP, &targetP->uri, &size, &dataP)) continue;
+            if (COAP_205_CONTENT != object_readData(contextP, NULL, &targetP->uri, &size, &dataP)) continue;
             valueP = dataP;
 #ifndef LWM2M_VERSION_1_0
             if (LWM2M_URI_IS_SET_RESOURCE_INSTANCE(&targetP->uri)
@@ -555,6 +564,7 @@ void observe_step(lwm2m_context_t * contextP,
             switch (dataType)
             {
             case LWM2M_TYPE_INTEGER:
+            case LWM2M_TYPE_TIME:
                 if (1 != lwm2m_data_decode_int(valueP, &integerValue))
                 {
                     lwm2m_data_free(size, dataP);
@@ -588,6 +598,12 @@ void observe_step(lwm2m_context_t * contextP,
             {
                 bool notify = false;
 
+                if (ac_is_enabled(contextP, watcherP->server) && !ac_is_operation_authorized(contextP, watcherP->server, &targetP->uri, LWM2M_OBJ_OP_READ))
+                {   
+                    LOG_ARG("Observation not allowed, server: %d, uri: /%d/%d/%d/%d", watcherP->server->shortID, targetP->uri.objectId, targetP->uri.instanceId, targetP->uri.resourceId, targetP->uri.resourceInstanceId);
+                    continue;
+                }
+
                 if (watcherP->update == true)
                 {
                     // value changed, should we notify the server ?
@@ -611,6 +627,7 @@ void observe_step(lwm2m_context_t * contextP,
                             switch (dataType)
                             {
                             case LWM2M_TYPE_INTEGER:
+                            case LWM2M_TYPE_TIME:
                                 if ((integerValue < watcherP->parameters->lessThan
                                   && watcherP->lastValue.asInteger > watcherP->parameters->lessThan)
                                  || (integerValue > watcherP->parameters->lessThan
@@ -651,6 +668,7 @@ void observe_step(lwm2m_context_t * contextP,
                             switch (dataType)
                             {
                             case LWM2M_TYPE_INTEGER:
+                            case LWM2M_TYPE_TIME:
                                 if ((integerValue < watcherP->parameters->greaterThan
                                   && watcherP->lastValue.asInteger > watcherP->parameters->greaterThan)
                                  || (integerValue > watcherP->parameters->greaterThan
@@ -691,6 +709,7 @@ void observe_step(lwm2m_context_t * contextP,
                             switch (dataType)
                             {
                             case LWM2M_TYPE_INTEGER:
+                            case LWM2M_TYPE_TIME:
                             {
                                 int64_t diff;
 
@@ -741,14 +760,16 @@ void observe_step(lwm2m_context_t * contextP,
                         }
                     }
 
-                    if (watcherP->parameters != NULL
-                     && (watcherP->parameters->toSet & LWM2M_ATTR_FLAG_MIN_PERIOD) != 0)
-                    {
-                        LOG_ARG("Checking minimal period (%d s)", watcherP->parameters->minPeriod);
+                    if (watcherP->parameters != NULL && 
+                        ((watcherP->parameters->toSet & LWM2M_ATTR_FLAG_MIN_PERIOD) ||
+                        (watcherP->parameters->toSet & LWM2M_ATTR_FLAG_MAX_PERIOD)))
+                    {   
+                        uint32_t minPeriod = (watcherP->parameters->toSet & LWM2M_ATTR_FLAG_MIN_PERIOD)? watcherP->parameters->minPeriod : watcherP->parameters->maxPeriod;
+                        LOG_ARG("Checking minimal period (%d s)", minPeriod);
 
-                        if ((time_t)(watcherP->lastTime + watcherP->parameters->minPeriod) > currentTime) {
+                        if ((time_t)(watcherP->lastTime + minPeriod) > currentTime) {
                             // Minimum Period did not elapse yet
-                            interval = watcherP->lastTime + watcherP->parameters->minPeriod - currentTime;
+                            interval = watcherP->lastTime + minPeriod - currentTime;
                             if (*timeoutP > interval) *timeoutP = interval;
                             notify = false;
                         } else {
@@ -759,13 +780,14 @@ void observe_step(lwm2m_context_t * contextP,
                 }
 
                 // Is the Maximum Period reached ?
-                if (notify == false
-                 && watcherP->parameters != NULL
-                 && (watcherP->parameters->toSet & LWM2M_ATTR_FLAG_MAX_PERIOD) != 0)
+                if (notify == false && watcherP->parameters != NULL && 
+                    ((watcherP->parameters->toSet & LWM2M_ATTR_FLAG_MAX_PERIOD) ||
+                    (watcherP->parameters->toSet & LWM2M_ATTR_FLAG_MIN_PERIOD)))
                 {
-                    LOG_ARG("Checking maximal period (%d s)", watcherP->parameters->maxPeriod);
+                    uint32_t maxPeriod = (watcherP->parameters->toSet & LWM2M_ATTR_FLAG_MAX_PERIOD)? watcherP->parameters->maxPeriod : watcherP->parameters->minPeriod;
+                    LOG_ARG("Checking maximal period (%d s)", maxPeriod);
 
-                    if ((time_t)(watcherP->lastTime + watcherP->parameters->maxPeriod) <= currentTime) {
+                    if ((time_t)(watcherP->lastTime + maxPeriod) <= currentTime) {
                         LOG("Notify on maximal period");
                         notify = true;
                     }
@@ -792,7 +814,7 @@ void observe_step(lwm2m_context_t * contextP,
                         }
                         else
                         {
-                            if (COAP_205_CONTENT != object_read(contextP, &targetP->uri, NULL, 0, &(watcherP->format), &buffer, &length))
+                            if (COAP_205_CONTENT != object_read(contextP, watcherP->server, &targetP->uri, NULL, 0, &(watcherP->format), &buffer, &length))
                             {
                                 buffer = NULL;
                                 break;
@@ -817,6 +839,7 @@ void observe_step(lwm2m_context_t * contextP,
                     switch (dataType)
                     {
                     case LWM2M_TYPE_INTEGER:
+                    case LWM2M_TYPE_TIME:
                         watcherP->lastValue.asInteger = integerValue;
                         break;
                     case LWM2M_TYPE_UNSIGNED_INTEGER:
@@ -841,6 +864,14 @@ void observe_step(lwm2m_context_t * contextP,
         if (dataP != NULL) lwm2m_data_free(size, dataP);
         if (buffer != NULL) lwm2m_free(buffer);
     }
+}
+
+void lwm2m_observe_step(lwm2m_context_t * contextP) {
+    time_t tv_sec;
+    time_t timeout = 0;
+
+    tv_sec = lwm2m_gettime();
+    observe_step(contextP, tv_sec, &timeout);
 }
 
 #endif

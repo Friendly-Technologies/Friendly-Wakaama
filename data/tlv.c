@@ -153,6 +153,7 @@ static uint8_t prv_getHeaderType(lwm2m_data_type_t type)
 
     case LWM2M_TYPE_STRING:
     case LWM2M_TYPE_INTEGER:
+    case LWM2M_TYPE_TIME:
     case LWM2M_TYPE_UNSIGNED_INTEGER:
     case LWM2M_TYPE_FLOAT:
     case LWM2M_TYPE_BOOLEAN:
@@ -441,6 +442,7 @@ static int prv_getLength(int size,
             break;
 
         case LWM2M_TYPE_INTEGER:
+        case LWM2M_TYPE_TIME:
             {
                 size_t data_len;
                 uint8_t unused_buffer[_PRV_64BIT_BUFFER_SIZE];
@@ -558,19 +560,10 @@ int tlv_serialize(bool isResourceInstance,
 
         case LWM2M_TYPE_OBJECT_LINK:
             {
-                int k;
-                uint8_t buf[4];
-                uint32_t v = cur->value.asObjLink.objectId;
-                v <<= 16;
-                v |= cur->value.asObjLink.objectInstanceId;
-                for (k = 3; k >= 0; --k) {
-                    buf[k] = (uint8_t)(v & 0xFF);
-                    v >>= 8;
-                }
                 // keep encoding as buffer
                 headerLen = prv_createHeader(*bufferP + index, isInstance, cur->type, cur->id, 4);
                 index += headerLen;
-                memcpy(*bufferP + index, buf, 4);
+                utils_objLinkToOpaque(cur->value.asObjLink.objectId, cur->value.asObjLink.objectInstanceId, *bufferP + index, 4);
                 index += 4;
             }
             break;
@@ -587,6 +580,7 @@ int tlv_serialize(bool isResourceInstance,
             break;
 
         case LWM2M_TYPE_INTEGER:
+        case LWM2M_TYPE_TIME:
             {
                 size_t data_len;
                 uint8_t data_buffer[_PRV_64BIT_BUFFER_SIZE];

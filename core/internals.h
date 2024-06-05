@@ -64,6 +64,9 @@
 
 #include "er-coap-13/er-coap-13.h"
 
+#define TO_STRING(x) #x
+#define VALUE_TO_STRING(x) TO_STRING(x)
+
 #ifdef LWM2M_WITH_LOGS
 #include <inttypes.h>
 #define LOG(STR) lwm2m_printf("[%s:%d] " STR "\r\n", __func__ , __LINE__)
@@ -97,7 +100,9 @@
 ((S) == STATE_REG_FAILED ? "STATE_REG_FAILED" :                 \
 ((S) == STATE_REG_UPDATE_PENDING ? "STATE_REG_UPDATE_PENDING" : \
 ((S) == STATE_REG_UPDATE_NEEDED ? "STATE_REG_UPDATE_NEEDED" :   \
-((S) == STATE_REG_FULL_UPDATE_NEEDED ? "STATE_REG_FULL_UPDATE_NEEDED" :   \
+((S) == STATE_REG_LT_UPDATE_NEEDED ? "STATE_REG_LT_UPDATE_NEEDED" :   \
+((S) == STATE_REG_OBJ_UPDATE_NEEDED ? "STATE_REG_OBJ_UPDATE_NEEDED" :   \
+((S) == STATE_REG_FULL_UPDATE_NEEDED ? "STATE_REG_FULL_UPDATE_NEEDED" : \
 ((S) == STATE_DEREG_PENDING ? "STATE_DEREG_PENDING" :           \
 ((S) == STATE_BS_HOLD_OFF ? "STATE_BS_HOLD_OFF" :               \
 ((S) == STATE_BS_INITIATED ? "STATE_BS_INITIATED" :             \
@@ -106,15 +111,17 @@
 ((S) == STATE_BS_FINISHING ? "STATE_BS_FINISHING" :             \
 ((S) == STATE_BS_FAILING ? "STATE_BS_FAILING" :                 \
 ((S) == STATE_BS_FAILED ? "STATE_BS_FAILED" :                   \
-"Unknown"))))))))))))))))
+"Unknown"))))))))))))))))))
 #define STR_MEDIA_TYPE(M)                                        \
 ((M) == LWM2M_CONTENT_TEXT ? "LWM2M_CONTENT_TEXT" :              \
 ((M) == LWM2M_CONTENT_LINK ? "LWM2M_CONTENT_LINK" :              \
 ((M) == LWM2M_CONTENT_OPAQUE ? "LWM2M_CONTENT_OPAQUE" :          \
 ((M) == LWM2M_CONTENT_TLV ? "LWM2M_CONTENT_TLV" :                \
+((M) == LWM2M_CONTENT_CBOR ? "LWM2M_CONTENT_CBOR" :              \
+((M) == LWM2M_CONTENT_SENML_CBOR ? "LWM2M_CONTENT_SENML_CBOR" :  \
 ((M) == LWM2M_CONTENT_JSON ? "LWM2M_CONTENT_JSON" :              \
 ((M) == LWM2M_CONTENT_SENML_JSON ? "LWM2M_CONTENT_SENML_JSON" :  \
-"Unknown"))))))
+"Unknown"))))))))
 #define STR_STATE(S)                                \
 ((S) == STATE_INITIAL ? "STATE_INITIAL" :      \
 ((S) == STATE_BOOTSTRAP_REQUIRED ? "STATE_BOOTSTRAP_REQUIRED" :      \
@@ -131,17 +138,15 @@
 #endif
 
 #define LWM2M_DEFAULT_LIFETIME  86400
+// 0.85 is coefficient for lifetime safe interval
+#define LWM2M_COMPUTE_LIFETIME(lifetime_sec) ((time_t)((lifetime_sec) * 0.85))
 
-#ifdef LWM2M_SUPPORT_SENML_JSON
-#define REG_LWM2M_RESOURCE_TYPE     ">;rt=\"oma.lwm2m\";ct=110,"
-#define REG_LWM2M_RESOURCE_TYPE_LEN 23
-#elif defined(LWM2M_SUPPORT_JSON)
-#define REG_LWM2M_RESOURCE_TYPE     ">;rt=\"oma.lwm2m\";ct=11543,"
-#define REG_LWM2M_RESOURCE_TYPE_LEN 25
+#ifdef LWM2M_REG_PREFERRED_CONTENT_TYPE
+#define REG_LWM2M_RESOURCE_TYPE     ">;rt=\"oma.lwm2m\";ct=" VALUE_TO_STRING(LWM2M_REG_PREFERRED_CONTENT_TYPE) ","
 #else
 #define REG_LWM2M_RESOURCE_TYPE     ">;rt=\"oma.lwm2m\","
-#define REG_LWM2M_RESOURCE_TYPE_LEN 17
 #endif
+
 #define REG_START           "<"
 #define REG_DEFAULT_PATH    "/"
 
@@ -157,6 +162,8 @@
 #define URI_REGISTRATION_SEGMENT_LEN    2
 #define URI_BOOTSTRAP_SEGMENT           "bs"
 #define URI_BOOTSTRAP_SEGMENT_LEN       2
+#define URI_SEND_SEGMENT        "dp"
+#define URI_SEND_SEGMENT_LEN    2
 
 #define QUERY_STARTER        "?"
 #define QUERY_NAME           "ep="
@@ -213,6 +220,10 @@
 #define ATTR_MIN_PERIOD_LEN      5
 #define ATTR_MAX_PERIOD_STR      "pmax="
 #define ATTR_MAX_PERIOD_LEN      5
+#define ATTR_EMIN_PERIOD_STR     "epmin="
+#define ATTR_EMIN_PERIOD_LEN     6
+#define ATTR_EMAX_PERIOD_STR     "epmax="
+#define ATTR_EMAX_PERIOD_LEN     6
 #define ATTR_GREATER_THAN_STR    "gt="
 #define ATTR_GREATER_THAN_LEN    3
 #define ATTR_LESS_THAN_STR       "lt="
@@ -239,6 +250,8 @@
 #define LINK_ITEM_START_SIZE        1
 #define LINK_ITEM_END               ">,"
 #define LINK_ITEM_END_SIZE          2
+#define LINK_ITEM_END_LAST          ">"
+#define LINK_ITEM_END_LAST_SIZE     1
 #define LINK_ITEM_DIM_START         ">;dim="
 #define LINK_ITEM_DIM_START_SIZE    6
 #define LINK_ITEM_ATTR_END          ","
@@ -295,31 +308,44 @@ typedef enum
     LWM2M_REQUEST_TYPE_DELETE_ALL
 } lwm2m_request_type_t;
 
+typedef enum
+{
+    LWM2M_OBJ_OP_UNKNOWN,
+    LWM2M_OBJ_OP_READ,
+    LWM2M_OBJ_OP_WRITE,
+    LWM2M_OBJ_OP_WRITE_ATTRIBUTES,
+    LWM2M_OBJ_OP_EXECUTE,
+    LWM2M_OBJ_OP_CREATE,
+    LWM2M_OBJ_OP_DELETE,
+    LWM2M_OBJ_OP_OBSERVE,
+    LWM2M_OBJ_OP_DISCOVER
+} lwm2m_obj_operation_t;
+
 // defined in uri.c
 lwm2m_request_type_t uri_decode(char * altPath, multi_option_t *uriPath, uint8_t code, lwm2m_uri_t *uriP);
 int uri_getNumber(uint8_t * uriString, size_t uriLength);
 int uri_toString(const lwm2m_uri_t * uriP, uint8_t * buffer, size_t bufferLen, uri_depth_t * depthP);
 
 // defined in objects.c
-uint8_t object_readData(lwm2m_context_t * contextP, lwm2m_uri_t * uriP, int * sizeP, lwm2m_data_t ** dataP);
-uint8_t object_read(lwm2m_context_t * contextP, lwm2m_uri_t * uriP, const uint16_t * accept, uint8_t acceptNum, lwm2m_media_type_t * formatP, uint8_t ** bufferP, size_t * lengthP);
-uint8_t object_write(lwm2m_context_t * contextP, lwm2m_uri_t * uriP, lwm2m_media_type_t format, uint8_t * buffer, size_t length, bool partial);
-uint8_t object_create(lwm2m_context_t * contextP, lwm2m_uri_t * uriP, lwm2m_media_type_t format, uint8_t * buffer, size_t length);
-uint8_t object_execute(lwm2m_context_t * contextP, lwm2m_uri_t * uriP, uint8_t * buffer, size_t length);
+uint8_t object_readData(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP, int * sizeP, lwm2m_data_t ** dataP);
+uint8_t object_read(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP, const uint16_t * accept, uint8_t acceptNum, lwm2m_media_type_t * formatP, uint8_t ** bufferP, size_t * lengthP);
+uint8_t object_write(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP, lwm2m_media_type_t format, uint8_t * buffer, size_t length, bool partial);
+uint8_t object_create(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP, lwm2m_media_type_t format, uint8_t * buffer, size_t length);
+uint8_t object_execute(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP, uint8_t * buffer, size_t length);
 #ifdef LWM2M_RAW_BLOCK1_REQUESTS
-uint8_t object_raw_block1_write(lwm2m_context_t * contextP, lwm2m_uri_t * uriP, lwm2m_media_type_t format, uint8_t * buffer, size_t length, uint32_t block_num, uint8_t block_more);
-uint8_t object_raw_block1_create(lwm2m_context_t * contextP, lwm2m_uri_t * uriP, lwm2m_media_type_t format, uint8_t * buffer, size_t length, uint32_t block_num, uint8_t block_more);
-uint8_t object_raw_block1_execute(lwm2m_context_t * contextP, lwm2m_uri_t * uriP, uint8_t * buffer, size_t length, uint32_t block_num, uint8_t block_more);
+uint8_t object_raw_block1_write(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP, lwm2m_media_type_t format, uint8_t * buffer, size_t length, uint32_t block_num, uint8_t block_more);
+uint8_t object_raw_block1_create(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP, lwm2m_media_type_t format, uint8_t * buffer, size_t length, uint32_t block_num, uint8_t block_more);
+uint8_t object_raw_block1_execute(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP, uint8_t * buffer, size_t length, uint32_t block_num, uint8_t block_more);
 #endif
-uint8_t object_delete(lwm2m_context_t * contextP, lwm2m_uri_t * uriP);
-uint8_t object_discover(lwm2m_context_t * contextP, lwm2m_uri_t * uriP, lwm2m_server_t * serverP, uint8_t ** bufferP, size_t * lengthP);
+uint8_t object_delete(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP);
+uint8_t object_discover(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP, uint8_t ** bufferP, size_t * lengthP);
 uint8_t object_checkReadable(lwm2m_context_t * contextP, lwm2m_uri_t * uriP, lwm2m_attributes_t * attrP);
 bool object_isInstanceNew(lwm2m_context_t * contextP, uint16_t objectId, uint16_t instanceId);
 int object_getRegisterPayloadBufferLength(lwm2m_context_t * contextP);
 int object_getRegisterPayload(lwm2m_context_t * contextP, uint8_t * buffer, size_t length);
 int object_getServers(lwm2m_context_t * contextP, bool checkOnly);
-uint8_t object_createInstance(lwm2m_context_t * contextP, lwm2m_uri_t * uriP, lwm2m_data_t * dataP);
-uint8_t object_writeInstance(lwm2m_context_t * contextP, lwm2m_uri_t * uriP, lwm2m_data_t * dataP);
+uint8_t object_createInstance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP, lwm2m_data_t * dataP);
+uint8_t object_writeInstance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP, lwm2m_data_t * dataP);
 
 // defined in transaction.c
 lwm2m_transaction_t * transaction_new(void * sessionH, coap_method_t method, char * altPath, lwm2m_uri_t * uriP, uint16_t mID, uint8_t token_len, uint8_t* token);
@@ -370,8 +396,20 @@ int tlv_parse(const uint8_t * buffer, size_t bufferLen, lwm2m_data_t ** dataP);
 int tlv_serialize(bool isResourceInstance, int size, lwm2m_data_t * dataP, uint8_t ** bufferP);
 #endif
 
-// defined in json.c
+#ifdef LWM2M_SUPPORT_CBOR
+// defined in cbor.c
+int cbor_parse(lwm2m_uri_t * uriP, const uint8_t * buffer, size_t bufferLen, lwm2m_data_t ** dataP);
+int cbor_serialize(int size, lwm2m_data_t * dataP, uint8_t ** bufferP);
+#endif
+
+#ifdef LWM2M_SUPPORT_SENML_CBOR
+// defined in senml_cbor.c
+int senml_cbor_parse(const lwm2m_uri_t * uriP, const uint8_t * buffer, size_t bufferLen, lwm2m_data_t ** dataP);
+int senml_cbor_serialize(lwm2m_uri_t * uriP, int size, const lwm2m_data_t * dataP, uint8_t ** bufferP);
+#endif
+
 #ifdef LWM2M_SUPPORT_JSON
+// defined in json.c
 int json_parse(lwm2m_uri_t * uriP, const uint8_t * buffer, size_t bufferLen, lwm2m_data_t ** dataP);
 int json_serialize(lwm2m_uri_t * uriP, int size, lwm2m_data_t * tlvP, uint8_t ** bufferP);
 #endif
@@ -392,6 +430,7 @@ int json_convertNumeric(const uint8_t *value, size_t valueLen, lwm2m_data_t *tar
 int json_convertTime(const uint8_t *valueStart, size_t valueLen, time_t *t);
 size_t json_unescapeString(uint8_t *dst, const uint8_t *src, size_t len);
 size_t json_escapeString(uint8_t *dst, size_t dstLen, const uint8_t *src, size_t srcLen);
+lwm2m_data_t * json_extendObjects(lwm2m_data_t ** objectsP, int *count);
 lwm2m_data_t * json_extendData(lwm2m_data_t * parentP);
 int json_dataStrip(int size, lwm2m_data_t * dataP, lwm2m_data_t ** resultP);
 lwm2m_data_t * json_findDataItem(lwm2m_data_t * listP, size_t count, uint16_t id);
@@ -445,6 +484,14 @@ int utils_textToObjLink(const uint8_t * buffer,
                         int length,
                         uint16_t * objectId,
                         uint16_t * objectInstanceId);
+size_t utils_objLinkToOpaque(uint16_t objectId,
+                           uint16_t objectInstanceId,
+                           uint8_t * string,
+                           size_t length);
+int utils_opaqueToObjLink(const uint8_t * buffer,
+                        int length,
+                        uint16_t * objectId,
+                        uint16_t * objectInstanceId);
 void utils_copyValue(void * dst, const void * src, size_t len);
 size_t utils_base64GetSize(size_t dataLen);
 size_t utils_base64Encode(const uint8_t * dataP, size_t dataLen, uint8_t * bufferP, size_t bufferLen);
@@ -457,5 +504,14 @@ lwm2m_server_t * utils_findBootstrapServer(lwm2m_context_t * contextP, void * fr
 #if defined(LWM2M_SERVER_MODE) || defined(LWM2M_BOOTSTRAP_SERVER_MODE)
 lwm2m_client_t * utils_findClient(lwm2m_context_t * contextP, void * fromSessionH);
 #endif
+
+#ifdef LWM2M_CLIENT_MODE
+// defined in objects/access_control.c
+bool ac_is_enabled(lwm2m_context_t * contextP, lwm2m_server_t * serverP);
+bool ac_is_operation_authorized(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t *uriP, lwm2m_obj_operation_t operation);
+int ac_create_instance(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_uri_t * uriP);
+int ac_delete_instance(lwm2m_context_t * contextP, lwm2m_uri_t * uriP);
+int ac_get_instances_with_support_operation(lwm2m_context_t * contextP, lwm2m_server_t * serverP, lwm2m_object_t * targetObjP, lwm2m_obj_operation_t operation, lwm2m_list_t **objInstList);
+#endif // LWM2M_CLIENT_MODE
 
 #endif

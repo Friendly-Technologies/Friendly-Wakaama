@@ -41,7 +41,7 @@ char *security_get_uri(lwm2m_context_t *lwm2mH, lwm2m_object_t *obj, int instanc
     lwm2m_data_t * dataP = lwm2m_data_new(size);
     dataP->id = 0; // security server uri
 
-    obj->readFunc(lwm2mH, instanceId, &size, &dataP, obj);
+    obj->readFunc(lwm2mH, NULL, instanceId, &size, &dataP, obj);
     if (dataP != NULL &&
             dataP->type == LWM2M_TYPE_STRING &&
             dataP->value.asBuffer.length > 0)
@@ -63,7 +63,7 @@ int64_t security_get_mode(lwm2m_context_t * lwm2mH, lwm2m_object_t * obj, int in
     lwm2m_data_t * dataP = lwm2m_data_new(size);
     dataP->id = 2; // security mode
 
-    obj->readFunc(lwm2mH, instanceId, &size, &dataP, obj);
+    obj->readFunc(lwm2mH, NULL, instanceId, &size, &dataP, obj);
     if (0 != lwm2m_data_decode_int(dataP,&mode))
     {
         lwm2m_data_free(size, dataP);
@@ -80,7 +80,7 @@ char *security_get_public_id(lwm2m_context_t *lwm2mH, lwm2m_object_t *obj, int i
     lwm2m_data_t * dataP = lwm2m_data_new(size);
     dataP->id = 3; // public key or id
 
-    obj->readFunc(lwm2mH, instanceId, &size, &dataP, obj);
+    obj->readFunc(lwm2mH, NULL, instanceId, &size, &dataP, obj);
     if (dataP != NULL &&
         dataP->type == LWM2M_TYPE_OPAQUE)
     {
@@ -105,7 +105,7 @@ char *security_get_secret_key(lwm2m_context_t *lwm2mH, lwm2m_object_t *obj, int 
     lwm2m_data_t * dataP = lwm2m_data_new(size);
     dataP->id = 5; // secret key
 
-    obj->readFunc(lwm2mH, instanceId, &size, &dataP, obj);
+    obj->readFunc(lwm2mH, NULL, instanceId, &size, &dataP, obj);
     if (dataP != NULL &&
         dataP->type == LWM2M_TYPE_OPAQUE)
     {

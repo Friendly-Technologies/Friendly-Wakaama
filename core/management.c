@@ -99,6 +99,41 @@ static int prv_readAttributes(multi_option_t * query,
             if (query->len != ATTR_MAX_PERIOD_LEN - 1) return -1;
 
             attrP->toClear |= LWM2M_ATTR_FLAG_MAX_PERIOD;
+        } 
+        else if (lwm2m_strncmp((char *)query->data, ATTR_EMIN_PERIOD_STR, ATTR_EMIN_PERIOD_LEN) == 0)
+        {
+            if (0 != ((attrP->toSet | attrP->toClear) & LWM2M_ATTR_FLAG_EMIN_PERIOD)) return -1;
+            if (query->len == ATTR_EMIN_PERIOD_LEN) return -1;
+
+            if (1 != utils_textToInt(query->data + ATTR_EMIN_PERIOD_LEN, query->len - ATTR_EMIN_PERIOD_LEN, &intValue)) return -1;
+            if (intValue < 0) return -1;
+
+            attrP->toSet |= LWM2M_ATTR_FLAG_EMIN_PERIOD;
+            attrP->minPeriod = intValue;
+        }
+        else if (lwm2m_strncmp((char *)query->data, ATTR_EMIN_PERIOD_STR, ATTR_EMIN_PERIOD_LEN - 1) == 0)
+        {
+            if (0 != ((attrP->toSet | attrP->toClear) & LWM2M_ATTR_FLAG_EMIN_PERIOD)) return -1;
+            if (query->len != ATTR_EMIN_PERIOD_LEN - 1) return -1;
+
+            attrP->toClear |= LWM2M_ATTR_FLAG_EMIN_PERIOD;
+        }
+        else if (lwm2m_strncmp((char *)query->data, ATTR_EMAX_PERIOD_STR, ATTR_EMAX_PERIOD_LEN) == 0)
+        {
+            if (0 != ((attrP->toSet | attrP->toClear) & LWM2M_ATTR_FLAG_EMAX_PERIOD)) return -1;
+            if (query->len == ATTR_EMAX_PERIOD_LEN) return -1;
+
+            if (1 != utils_textToInt(query->data + ATTR_EMAX_PERIOD_LEN, query->len - ATTR_EMAX_PERIOD_LEN, &intValue)) return -1;
+            if (intValue < 0) return -1;
+
+            attrP->toSet |= LWM2M_ATTR_FLAG_EMAX_PERIOD;
+            attrP->maxPeriod = intValue;
+        }
+        else if (lwm2m_strncmp((char *)query->data, ATTR_EMAX_PERIOD_STR, ATTR_EMAX_PERIOD_LEN - 1) == 0) {
+            if (0 != ((attrP->toSet | attrP->toClear) & LWM2M_ATTR_FLAG_EMAX_PERIOD)) return -1;
+            if (query->len != ATTR_EMAX_PERIOD_LEN - 1) return -1;
+
+            attrP->toClear |= LWM2M_ATTR_FLAG_EMAX_PERIOD;
         }
         else if (lwm2m_strncmp((char *)query->data, ATTR_GREATER_THAN_STR, ATTR_GREATER_THAN_LEN) == 0)
         {
@@ -160,6 +195,135 @@ static int prv_readAttributes(multi_option_t * query,
     return 0;
 }
 
+static lwm2m_obj_operation_t prv_get_operation_type(coap_packet_t * message, lwm2m_uri_t * uriP) {
+    lwm2m_obj_operation_t operation = LWM2M_OBJ_OP_UNKNOWN;
+    
+    if (message == NULL) return operation;
+
+    switch (message->code) {
+    case COAP_GET: {
+        if (IS_OPTION(message, COAP_OPTION_OBSERVE))
+        {
+            operation = LWM2M_OBJ_OP_OBSERVE;
+        }
+        else if (IS_OPTION(message, COAP_OPTION_ACCEPT)
+            && message->accept_num == 1
+            && message->accept[0] == APPLICATION_LINK_FORMAT)
+        {
+            operation = LWM2M_OBJ_OP_DISCOVER;
+        }
+        else
+        {
+            operation = LWM2M_OBJ_OP_READ;
+        }
+        break;
+    }
+    case COAP_POST: {
+        // TODO: Add support for blockwise POST
+        if (!LWM2M_URI_IS_SET_INSTANCE(uriP))
+        {
+            operation = LWM2M_OBJ_OP_CREATE;
+        }
+        else if (!IS_OPTION(message, COAP_OPTION_CONTENT_TYPE))
+        {
+            if (LWM2M_URI_IS_SET_RESOURCE(uriP)
+#ifndef LWM2M_VERSION_1_0
+                && !LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP)
+#endif
+                )
+            {
+                operation = LWM2M_OBJ_OP_EXECUTE;
+            }
+        }
+        else
+        {
+            operation = LWM2M_OBJ_OP_WRITE;
+        }
+        break;
+    }
+    case COAP_PUT: {
+        // TODO: Add support for blockwise PUT
+        if (IS_OPTION(message, COAP_OPTION_URI_QUERY))
+        {
+            operation = LWM2M_OBJ_OP_WRITE_ATTRIBUTES;
+        }
+        else if (LWM2M_URI_IS_SET_INSTANCE(uriP))
+        {
+            operation = LWM2M_OBJ_OP_WRITE;
+        }
+        break;
+    }
+    case COAP_DELETE: {
+        if (LWM2M_URI_IS_SET_INSTANCE(uriP) && !LWM2M_URI_IS_SET_RESOURCE(uriP))
+        {
+            operation = LWM2M_OBJ_OP_DELETE;
+        }
+        break;
+    }
+    default:
+        break;
+    }
+
+    return operation;
+}
+
+int prv_handle_observe_operation(lwm2m_context_t * contextP,
+                                 lwm2m_uri_t * uriP,
+                                 lwm2m_server_t * serverP,
+                                 coap_packet_t * message,
+                                 coap_packet_t * response,
+                                 lwm2m_media_type_t format) {
+    uint8_t result;
+    uint8_t * buffer = NULL;
+    size_t length = 0;
+    int res;
+    lwm2m_data_t * dataP = NULL;
+    int size = 0;
+
+    // object_readData() function also checks if the server has access to the object/instance 
+    result = object_readData(contextP, serverP, uriP, &size, &dataP);
+    if (COAP_205_CONTENT != result) {
+        return result;
+    }
+
+    bool isSingleResource = (LWM2M_URI_IS_SET_RESOURCE(uriP) && dataP->type != LWM2M_TYPE_MULTIPLE_RESOURCE) ||
+                            LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP);
+    result = utils_getResponseFormat(message->accept_num, message->accept, size, dataP, isSingleResource, &format);
+    if (COAP_205_CONTENT != result) {
+        lwm2m_data_free(size, dataP);
+        return result;
+    }
+    
+    coap_set_header_content_type(response, format);
+    result = observe_handleRequest(contextP, uriP, serverP, size, dataP, message, response);
+    if (COAP_205_CONTENT != result) {
+        lwm2m_data_free(size, dataP);
+        return result;
+    }
+
+    res = lwm2m_data_serialize(uriP, size, dataP, &format, &buffer);
+    if (res < 0)
+    {
+        result = COAP_500_INTERNAL_SERVER_ERROR;
+    }
+    else
+    {
+        length = (size_t)res;
+        LOG_ARG("Observe Request[/%d/%d/%d/%d]: %d\n", uriP->objectId, uriP->instanceId, uriP->resourceId, uriP->resourceInstanceId, length);
+    }
+    lwm2m_data_free(size, dataP);
+
+    if (COAP_205_CONTENT == result) {
+        coap_set_header_content_type(response, format);
+        coap_set_payload(response, buffer, length);
+        // lwm2m_handle_packet will free buffer
+    } else {
+        lwm2m_free(buffer);
+    }
+
+    return result;
+}
+
 uint8_t dm_handleRequest(lwm2m_context_t * contextP,
                          lwm2m_uri_t * uriP,
                          lwm2m_server_t * serverP,
@@ -168,6 +332,7 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
 {
     uint8_t result;
     lwm2m_media_type_t format;
+    lwm2m_obj_operation_t operation;
 
     LOG_ARG("Code: %02X, server status: %s", message->code, STR_STATUS(serverP->status));
     LOG_URI(uriP);
@@ -188,215 +353,104 @@ uint8_t dm_handleRequest(lwm2m_context_t * contextP,
 
     if (serverP->status != STATE_REGISTERED
         && serverP->status != STATE_REG_UPDATE_NEEDED
+        && serverP->status != STATE_REG_LT_UPDATE_NEEDED
+        && serverP->status != STATE_REG_OBJ_UPDATE_NEEDED
         && serverP->status != STATE_REG_FULL_UPDATE_NEEDED
         && serverP->status != STATE_REG_UPDATE_PENDING)
     {
         return COAP_IGNORE;
     }
-
-    // TODO: check ACL
-
-    switch (message->code)
+    
+    operation = prv_get_operation_type(message, uriP);
+    if (operation == LWM2M_OBJ_OP_UNKNOWN)
     {
-    case COAP_GET:
-        {
-            uint8_t * buffer = NULL;
-            size_t length = 0;
-            int res;
+        return COAP_400_BAD_REQUEST;
+    }
+    LOG_ARG("Operation: %d", operation);
 
-            if (IS_OPTION(message, COAP_OPTION_OBSERVE))
-            {
-                lwm2m_data_t * dataP = NULL;
-                int size = 0;
-
-                result = object_readData(contextP, uriP, &size, &dataP);
-                if (COAP_205_CONTENT == result)
-                {
-                    result = utils_getResponseFormat(message->accept_num,
-                                                     message->accept,
-                                                     size,
-                                                     dataP,
-                                                     LWM2M_URI_IS_SET_RESOURCE(uriP),
-                                                     &format);
-                    if (COAP_205_CONTENT == result)
-                    {
-                        coap_set_header_content_type(response, format);
-                        result = observe_handleRequest(contextP,
-                                                       uriP,
-                                                       serverP,
-                                                       size,
-                                                       dataP,
-                                                       message,
-                                                       response);
-                        if (COAP_205_CONTENT == result)
-                        {
-                            res = lwm2m_data_serialize(uriP, size, dataP, &format, &buffer);
-                            if (res < 0)
-                            {
-                                result = COAP_500_INTERNAL_SERVER_ERROR;
-                            }
-                            else
-                            {
-                                length = (size_t)res;
-                                LOG_ARG("Observe Request[/%d/%d/%d]: %.*s\n",
-                                        uriP->objectId,
-                                        uriP->instanceId,
-                                        uriP->resourceId,
-                                        length,
-                                        STR_NULL2EMPTY(buffer));
-                            }
-                        }
-                    }
-                    lwm2m_data_free(size, dataP);
-                }
-            }
-            else if (IS_OPTION(message, COAP_OPTION_ACCEPT)
-                  && message->accept_num == 1
-                  && message->accept[0] == APPLICATION_LINK_FORMAT)
-            {
-                format = LWM2M_CONTENT_LINK;
-                result = object_discover(contextP, uriP, serverP, &buffer, &length);
-            }
-            else
-            {
-                result = object_read(contextP,
-                                     uriP,
-                                     message->accept,
-                                     message->accept_num,
-                                     &format,
-                                     &buffer,
-                                     &length);
-            }
-            if (COAP_205_CONTENT == result)
-            {
-                coap_set_header_content_type(response, format);
-                coap_set_payload(response, buffer, length);
-                // lwm2m_handle_packet will free buffer
-            }
-            else
-            {
-                lwm2m_free(buffer);
-            }
+    switch (operation) {
+    case LWM2M_OBJ_OP_READ: {
+        uint8_t * buffer = NULL;
+        size_t length = 0;
+        
+        result = object_read(contextP, serverP, uriP, message->accept, message->accept_num, &format, &buffer, &length);
+        if (COAP_205_CONTENT == result) {
+            coap_set_header_content_type(response, format);
+            coap_set_payload(response, buffer, length);
+            // lwm2m_handle_packet will free buffer
+        } else {
+            lwm2m_free(buffer);
         }
         break;
-
-    case COAP_POST:
-        {
-#ifdef LWM2M_RAW_BLOCK1_REQUESTS
-            if (IS_OPTION(message, COAP_OPTION_BLOCK1))
-            {
-                if (!LWM2M_URI_IS_SET_INSTANCE(uriP))
-                {
-                    result = object_raw_block1_create(contextP, uriP, format, message->payload, message->payload_len, message->block1_num, message->block1_more);
-                }
-                else if (!LWM2M_URI_IS_SET_RESOURCE(uriP))
-                {
-                    result = object_raw_block1_write(contextP, uriP, format, message->payload, message->payload_len, message->block1_num, message->block1_more);
-                }
-                else
-                {
-                    result = object_raw_block1_execute(contextP, uriP, message->payload, message->payload_len, message->block1_num, message->block1_more);
-                }
-                break;
-            }
-#endif
-            if (!LWM2M_URI_IS_SET_INSTANCE(uriP))
-            {
-                result = object_create(contextP, uriP, format, message->payload, message->payload_len);
-                if (result == COAP_201_CREATED)
-                {
-                    //longest uri is /65535/65535 = 12 + 1 (null) chars
-                    char location_path[13] = "";
-                    //instanceId expected
-                    if (!LWM2M_URI_IS_SET_INSTANCE(uriP))
-                    {
-                        result = COAP_500_INTERNAL_SERVER_ERROR;
-                        break;
-                    }
-
-                    if (sprintf(location_path, "/%d/%d", uriP->objectId, uriP->instanceId) < 0)
-                    {
-                        result = COAP_500_INTERNAL_SERVER_ERROR;
-                        break;
-                    }
-                    coap_set_header_location_path(response, location_path);
-
-                    lwm2m_update_registration(contextP, 0, true);
-                }
-            }
-            else if (!IS_OPTION(message, COAP_OPTION_CONTENT_TYPE)
-                  || format == LWM2M_CONTENT_TEXT)
-            {
-                if (!LWM2M_URI_IS_SET_RESOURCE(uriP)
-#ifndef LWM2M_VERSION_1_0
-                 || LWM2M_URI_IS_SET_RESOURCE_INSTANCE(uriP)
-#endif
-                   )
-                {
-                    result = COAP_400_BAD_REQUEST;
-                }
-                else
-                {
-                    result = object_execute(contextP, uriP, message->payload, message->payload_len);
-                }
-            }
-            else
-            {
-                result = object_write(contextP, uriP, format, message->payload, message->payload_len, true);
-            }
+    }
+    case LWM2M_OBJ_OP_WRITE: {
+        bool partialUpdate = message->code == COAP_POST;
+        result = object_write(contextP, serverP, uriP, format, message->payload, message->payload_len, partialUpdate);
+        break;
+    }
+    case LWM2M_OBJ_OP_WRITE_ATTRIBUTES: {
+        lwm2m_attributes_t attr;
+        if (0 != prv_readAttributes(message->uri_query, &attr)) {
+            result = COAP_400_BAD_REQUEST;
+        } else {
+            result = observe_setParameters(contextP, uriP, serverP, &attr);
         }
         break;
-
-    case COAP_PUT:
+    }
+    case LWM2M_OBJ_OP_EXECUTE: {
+        result = object_execute(contextP, serverP, uriP, message->payload, message->payload_len);
+        break;
+    }
+    case LWM2M_OBJ_OP_CREATE: {
+        result = object_create(contextP, serverP, uriP, format, message->payload, message->payload_len);
+        if (result != COAP_201_CREATED) break;
+        
+        //longest uri is /65535/65535 = 12 + 1 (null) chars
+        char location_path[13] = "";
+        //instanceId expected
+        if (!LWM2M_URI_IS_SET_INSTANCE(uriP))
         {
-#ifdef LWM2M_RAW_BLOCK1_REQUESTS
-            if (IS_OPTION(message, COAP_OPTION_BLOCK1))
-            {
-                result = object_raw_block1_write(contextP, uriP, format, message->payload, message->payload_len, message->block1_num, message->block1_more);
-                break;
-            }
-#endif
-            if (IS_OPTION(message, COAP_OPTION_URI_QUERY))
-            {
-                lwm2m_attributes_t attr;
+            result = COAP_500_INTERNAL_SERVER_ERROR;
+            break;
+        }
+        if (sprintf(location_path, "/%d/%d", uriP->objectId, uriP->instanceId) < 0)
+        {
+            result = COAP_500_INTERNAL_SERVER_ERROR;
+            break;
+        }
 
-                if (0 != prv_readAttributes(message->uri_query, &attr))
-                {
-                    result = COAP_400_BAD_REQUEST;
-                }
-                else
-                {
-                    result = observe_setParameters(contextP, uriP, serverP, &attr);
-                }
-            }
-            else if (LWM2M_URI_IS_SET_INSTANCE(uriP))
-            {
-                result = object_write(contextP, uriP, format, message->payload, message->payload_len, false);
-            }
-            else
-            {
-                result = COAP_400_BAD_REQUEST;
-            }
+        coap_set_header_location_path(response, location_path);
+        lwm2m_update_registration(contextP, 0, false, true);
+        break;
+    }
+    case LWM2M_OBJ_OP_DELETE: {
+        result = object_delete(contextP, serverP, uriP);
+        if (result == COAP_202_DELETED)
+        {
+            lwm2m_update_registration(contextP, 0, false, true);
         }
         break;
+    }
+    case LWM2M_OBJ_OP_OBSERVE: {
+        result = prv_handle_observe_operation(contextP, uriP, serverP, message, response, format);
+        break;
+    }
+    case LWM2M_OBJ_OP_DISCOVER: {
+        uint8_t * buffer = NULL;
+        size_t length = 0;
 
-    case COAP_DELETE:
-        {
-            if (!LWM2M_URI_IS_SET_INSTANCE(uriP) || LWM2M_URI_IS_SET_RESOURCE(uriP))
-            {
-                result = COAP_400_BAD_REQUEST;
-            }
-            else
-            {
-                result = object_delete(contextP, uriP);
-                if (result == COAP_202_DELETED)
-                {
-                    lwm2m_update_registration(contextP, 0, true);
-                }
-            }
+        format = LWM2M_CONTENT_LINK;
+        result = object_discover(contextP, serverP, uriP, &buffer, &length);
+
+        if (COAP_205_CONTENT == result) {
+            coap_set_header_content_type(response, format);
+            coap_set_payload(response, buffer, length);
+            // lwm2m_handle_packet will free buffer
+        } else {
+            lwm2m_free(buffer);
         }
         break;
-
+    }
     default:
         result = COAP_400_BAD_REQUEST;
         break;

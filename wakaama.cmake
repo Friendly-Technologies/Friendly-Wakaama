@@ -1,6 +1,11 @@
 set(WAKAAMA_TOP_LEVEL_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}")
+set(WAKAAMA_CORE_DIRECTORY "${WAKAAMA_TOP_LEVEL_DIRECTORY}/core")
+set(WAKAAMA_CORE_OBJECTS_DIRECTORY "${WAKAAMA_CORE_DIRECTORY}/objects")
 set(WAKAAMA_EXAMPLE_DIRECTORY "${WAKAAMA_TOP_LEVEL_DIRECTORY}/examples")
 set(WAKAAMA_EXAMPLE_SHARED_DIRECTORY "${WAKAAMA_EXAMPLE_DIRECTORY}/shared")
+set(WAKAAMA_LIBS_DIRECTORY "${WAKAAMA_TOP_LEVEL_DIRECTORY}/libs")
+
+include(${WAKAAMA_LIBS_DIRECTORY}/tinycbor.cmake)
 
 # Add data format source files to an existing target.
 #
@@ -10,7 +15,8 @@ function(target_sources_data target)
         ${target}
         PRIVATE ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/data.c ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/json.c
                 ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/json_common.c ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/senml_json.c
-                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/tlv.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/tlv.c ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/cbor.c
+                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/data/senml_cbor.c
     )
 endfunction()
 
@@ -36,24 +42,26 @@ endfunction()
 function(target_sources_wakaama target)
     target_sources(
         ${target}
-        PRIVATE ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/bootstrap.c
-                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/discover.c
-                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/internals.h
-                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/liblwm2m.c
-                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/list.c
-                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/management.c
-                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/objects.c
-                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/observe.c
-                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/packet.c
-                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/registration.c
-                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/uri.c
-                ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core/utils.c
+        PRIVATE ${WAKAAMA_CORE_DIRECTORY}/bootstrap.c
+                ${WAKAAMA_CORE_DIRECTORY}/discover.c
+                ${WAKAAMA_CORE_DIRECTORY}/internals.h
+                ${WAKAAMA_CORE_DIRECTORY}/liblwm2m.c
+                ${WAKAAMA_CORE_DIRECTORY}/list.c
+                ${WAKAAMA_CORE_DIRECTORY}/management.c
+                ${WAKAAMA_CORE_DIRECTORY}/objects.c
+                ${WAKAAMA_CORE_DIRECTORY}/observe.c
+                ${WAKAAMA_CORE_DIRECTORY}/packet.c
+                ${WAKAAMA_CORE_DIRECTORY}/registration.c
+                ${WAKAAMA_CORE_DIRECTORY}/uri.c
+                ${WAKAAMA_CORE_DIRECTORY}/utils.c
+                ${WAKAAMA_CORE_DIRECTORY}/send.c
+                ${WAKAAMA_CORE_OBJECTS_DIRECTORY}/access_control.c
     )
 
-    target_include_directories(${target} PRIVATE ${WAKAAMA_TOP_LEVEL_DIRECTORY}/include)
+    target_include_directories(${target} PUBLIC ${WAKAAMA_TOP_LEVEL_DIRECTORY}/include)
 
     # We should not (have to) do this!
-    target_include_directories(${target} PRIVATE ${WAKAAMA_TOP_LEVEL_DIRECTORY}/core)
+    target_include_directories(${target} PRIVATE ${WAKAAMA_CORE_DIRECTORY})
 
     # Extract pre-existing target specific definitions WARNING: Directory properties are not taken into account!
     get_target_property(CURRENT_TARGET_COMPILE_DEFINITIONS ${target} COMPILE_DEFINITIONS)
@@ -84,6 +92,7 @@ function(target_sources_wakaama target)
 
     target_sources_coap(${target})
     target_sources_data(${target})
+    target_sources_tinycbor(${target})
 endfunction()
 
 # Add shared source files to an existing target.
@@ -126,11 +135,11 @@ add_compile_options(
     -Wno-unused-parameter
     # Reduce noise: Too many false positives
     -Wno-uninitialized
+    # Disabled because of existing, non-trivially fixable code
+    -Wno-cast-align
 
      # Turn (most) warnings into errors
     -Werror
-    # Disabled because of existing, non-trivially fixable code
-    -Wno-error=cast-align
 )
 
 # The maximum buffer size that is provided for resource responses and must be respected due to the limited IP buffer.
