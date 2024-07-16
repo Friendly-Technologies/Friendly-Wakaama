@@ -44,29 +44,31 @@ string(REGEX REPLACE "-[^-]+$" "" TOOLCHAIN_NAME "${COMPILER_FILENAME}")
 # The tinydtls configure step will create some more source files (tinydtls.h etc). Use CMake "External Project" module
 # to call autoreconf and configure on tinydtls if necessary.
 if(NOT EXISTS ${TINYDTLS_SOURCES_GENERATED})
-    include(ExternalProject)
-    ExternalProject_Add(
-        external_tinydtls
-        SOURCE_DIR "${TINYDTLS_SOURCES_DIR}"
-        DOWNLOAD_COMMAND ""
-        UPDATE_COMMAND ""
-        BUILD_COMMAND ""
-        INSTALL_COMMAND ""
-        CONFIGURE_COMMAND ${TINYDTLS_SOURCES_DIR}/configure --host=${TOOLCHAIN_NAME}
-        BUILD_IN_SOURCE 1
-        LOG_DOWNLOAD 1
-        LOG_CONFIGURE 1
-        # Make the submodule_update target a dependency.
-        DEPENDS submodule_update
-    )
+    if(NOT TARGET external_tinydtls)
+        include(ExternalProject)
+        ExternalProject_Add(
+            external_tinydtls
+            SOURCE_DIR "${TINYDTLS_SOURCES_DIR}"
+            DOWNLOAD_COMMAND ""
+            UPDATE_COMMAND ""
+            BUILD_COMMAND ""
+            INSTALL_COMMAND ""
+            CONFIGURE_COMMAND ${TINYDTLS_SOURCES_DIR}/configure --host=${TOOLCHAIN_NAME}
+            BUILD_IN_SOURCE 1
+            LOG_DOWNLOAD 1
+            LOG_CONFIGURE 1
+            # Make the submodule_update target a dependency.
+            DEPENDS submodule_update
+        )
 
-    ExternalProject_Add_Step(
-        external_tinydtls autoheader
-        COMMAND "./autogen.sh"
-        ALWAYS 1
-        WORKING_DIRECTORY "${TINYDTLS_SOURCES_DIR}"
-        DEPENDERS configure
-    )
+        ExternalProject_Add_Step(
+            external_tinydtls autoheader
+            COMMAND "./autogen.sh"
+            ALWAYS 1
+            WORKING_DIRECTORY "${TINYDTLS_SOURCES_DIR}"
+            DEPENDERS configure
+        )
+    endif()
 
     add_custom_command(
         OUTPUT ${TINYDTLS_SOURCES_GENERATED}
