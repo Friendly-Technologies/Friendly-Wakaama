@@ -29,11 +29,14 @@ add_custom_command(
     COMMAND ${GIT_EXECUTABLE} -C ${TINYDTLS_SOURCES_DIR} submodule update
     COMMENT "Update submodule"
 )
-add_custom_target(
-    submodule_update
-    SOURCES ${TINYDTLS_SOURCES}
-    COMMENT "Generated (and other) tinydtls sources"
-)
+
+if(NOT TARGET submodule_update)
+    add_custom_target(
+        submodule_update
+        SOURCES ${TINYDTLS_SOURCES}
+        COMMENT "Generated (and other) tinydtls sources"
+    )
+endif()
 
 get_filename_component(COMPILER_FILENAME "${CMAKE_C_COMPILER}" NAME)
 string(REGEX REPLACE "-[^-]+$" "" TOOLCHAIN_NAME "${COMPILER_FILENAME}")
